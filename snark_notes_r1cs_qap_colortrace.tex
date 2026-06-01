@@ -1,0 +1,2544 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tcolorbox}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\setlength{\headheight}{14pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Mathematical Notes on SNARKs}
+\rhead{\thepage}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\poly}{\F[X]}
+\newcommand{\polydeg}[1]{\F[X]_{\le #1}}
+\newcommand{\negl}{\mathrm{negl}}
+\newcommand{\pp}{\mathsf{pp}}
+\newcommand{\vp}{\mathsf{vp}}
+\newcommand{\Com}{\mathsf{Com}}
+\newcommand{\Commit}{\mathsf{Commit}}
+\newcommand{\Open}{\mathsf{Open}}
+\newcommand{\Verify}{\mathsf{Verify}}
+\newcommand{\Setup}{\mathsf{Setup}}
+\newcommand{\Eval}{\mathsf{Eval}}
+\newcommand{\Adv}{\mathcal{A}}
+\newcommand{\Sim}{\mathsf{Sim}}
+\newcommand{\iprod}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\G}{\mathbb{G}}
+\newcommand{\GT}{\mathbb{G}_T}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\RS}{\mathsf{RS}}
+\newcommand{\bp}{\mathsf{bp}}
+\newcommand{\pub}[1]{\textcolor{blue!65!black}{#1}}
+\newcommand{\wit}[1]{\textcolor{purple!70!black}{#1}}
+\newcommand{\aux}[1]{\textcolor{orange!80!black}{#1}}
+\definecolor{wireconstcolor}{RGB}{95,95,95}
+\definecolor{wirexonecolor}{RGB}{0,90,180}
+\definecolor{wirextwocolor}{RGB}{0,135,135}
+\definecolor{wirewonecolor}{RGB}{125,70,170}
+\definecolor{wirevonecolor}{RGB}{220,120,0}
+\definecolor{wirevtwocolor}{RGB}{40,145,70}
+\definecolor{wireycolor}{RGB}{190,55,55}
+\definecolor{rowonecolor}{RGB}{31,119,180}
+\definecolor{rowtwocolor}{RGB}{214,39,40}
+\definecolor{rowthreecolor}{RGB}{44,160,44}
+\newcommand{\constwire}[1]{\textcolor{wireconstcolor}{#1}}
+\newcommand{\xone}[1]{\textcolor{wirexonecolor}{#1}}
+\newcommand{\xtwo}[1]{\textcolor{wirextwocolor}{#1}}
+\newcommand{\wone}[1]{\textcolor{wirewonecolor}{#1}}
+\newcommand{\vone}[1]{\textcolor{wirevonecolor}{#1}}
+\newcommand{\vtwo}[1]{\textcolor{wirevtwocolor}{#1}}
+\newcommand{\ywire}[1]{\textcolor{wireycolor}{#1}}
+\newcommand{\rowone}[1]{\textcolor{rowonecolor}{#1}}
+\newcommand{\rowtwo}[1]{\textcolor{rowtwocolor}{#1}}
+\newcommand{\rowthree}[1]{\textcolor{rowthreecolor}{#1}}
+\newcommand{\set}[1]{\left\{#1\right\}}
+\newcommand{\abs}[1]{\left|#1\right|}
+\newcommand{\paren}[1]{\left(#1\right)}
+\newcommand{\bracket}[1]{\left[#1\right]}
+\newcommand{\angles}[1]{\left\langle #1\right\rangle}
+\newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+\tcbset{colback=blue!2!white,colframe=blue!50!black,boxrule=0.6pt,arc=1.5mm}
+\titleformat{\section}{\Large\bfseries\color{blue!45!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{blue!35!black}}{\thesubsection}{0.6em}{}
+\title{\textbf{Mathematical Notes on SNARKs}}
+\author{A living technical notebook}
+\date{March 2026}
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{tcolorbox}
+\textbf{Purpose.} These notes are a living, modular set of mathematical notes on SNARKs. They develop definitions, algebraic tools, polynomial commitments, polynomial IOP gadgets, and concrete protocol constructions in a cumulative way, so that later topics can be added without changing the overall structure.
+\end{tcolorbox}
+
+\tableofcontents
+\newpage
+
+\section{Overview and Big Picture}
+
+A preprocessing SNARK is a proof system for statements of the form
+\[
+\exists w \in \F^m \text{ such that } C(x,w)=0,
+\]
+where $x$ is public, $w$ is secret, and $C$ is an arithmetic circuit over a finite field. The promise of a SNARK is that the proof is \emph{short}, verification is \emph{fast}, and in the zero-knowledge case the proof reveals essentially nothing beyond the truth of the statement.
+
+The current organization follows the standard architecture of modern SNARKs. We first set up the proof-system definitions and the algebraic model of computation. We then study polynomial commitments as the cryptographic layer used to bind prover messages. Finally, we develop the univariate polynomial-IOP gadgets that underlie Plonk-style arithmetization.
+
+A useful slogan is:
+\[
+\boxed{
+\begin{array}{c}
+\text{Succinct proof for general circuits}\\[0.2em]
+=\text{ algebraic arithmetization }+\text{ low-query proof }+\text{ succinct commitments}.
+\end{array}}
+\]
+
+\section{Foundations of SNARKs}
+
+\subsection{Why SNARKs exist}
+
+Suppose a prover claims to know a huge witness $w$ making a statement true. The trivial proof system is to send $w$ and let the verifier check $C(x,w)=0$. This is unsatisfactory for three separate reasons:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Privacy:} the witness may be secret.
+    \item \textbf{Communication:} the witness may be much larger than the statement.
+    \item \textbf{Verification cost:} recomputing $C(x,w)$ may be expensive.
+\end{enumerate}
+
+SNARKs address all three. The terminology sits in the lineage of succinct arguments and zero-knowledge proofs, beginning with foundational work on zero knowledge, non-interactive zero knowledge, and efficient arguments \cite{GoldwasserMicaliRackoff1989,BlumFeldmanMicali1988,Kilian1992}. In modern applications this gives:
+\begin{itemize}[leftmargin=2em]
+    \item private payments and private smart-contract logic,
+    \item validity proofs for rollups and bridges,
+    \item verifiable outsourced computation,
+    \item privacy-preserving compliance and attestations.
+\end{itemize}
+
+\subsection{Arithmetic circuits and NP relations}
+
+These notes model computation by \emph{arithmetic circuits}. Fix a prime field $\F=\F_p$. An arithmetic circuit is a directed acyclic graph whose internal nodes are labeled by field operations such as $+$, $-$, and $\times$, and whose inputs are field elements.
+
+A circuit with public input $x\in \F^n$ and witness $w\in \F^m$ computes a polynomial-time decidable relation
+\[
+R_C = \set{(x,w) : C(x,w)=0}.
+\]
+
+This is the SNARK-friendly analog of an NP relation. The verifier wants evidence that
+\[
+\exists w \text{ such that } (x,w)\in R_C.
+\]
+
+\begin{example}[Circuits as algebraic checks]
+Two standard examples are:
+\begin{align*}
+C_{\mathrm{hash}}(h,m) &= h - \mathrm{SHA256}(m),\\
+C_{\mathrm{sig}}(pk,m,\sigma) &= 0 \quad \text{iff } \sigma \text{ verifies under } pk.
+\end{align*}
+In practice these are compiled into large arithmetic circuits over some field compatible with the chosen proving system.
+\end{example}
+
+\subsection{Preprocessing argument systems}
+
+A \emph{preprocessing argument system} for a fixed circuit $C$ consists of three algorithms:
+\[
+S(C) \to (\pp,\vp),\qquad P(\pp,x,w) \to \pi,\qquad V(\vp,x,\pi)\to\set{0,1}.
+\]
+
+The idea is that $S$ compresses the circuit into verification/proving parameters once and for all. Then many proofs for that circuit can be produced and verified.
+
+Preprocessing is important because verification should depend only polylogarithmically on the circuit size, not linearly. Without preprocessing, the verifier would usually need too much information about the whole circuit to stay succinct.
+
+\subsection{Completeness, knowledge soundness, and succinctness}
+
+A central security notion for SNARKs is not merely ordinary soundness but \emph{knowledge soundness}. The reason is subtle: we do not merely want ``false statements are rejected.'' We want ``if a prover convinces the verifier, then the prover \emph{knows} a valid witness.''
+
+\begin{definition}[Completeness]
+A SNARK is complete if for every valid pair $(x,w)$ with $C(x,w)=0$,
+\[
+\Pr\bracket{V\paren{\vp,x,P(\pp,x,w)}=1}=1
+\]
+or at least overwhelmingly close to $1$.
+\end{definition}
+
+\begin{definition}[Knowledge soundness]
+A preprocessing argument system $(S,P,V)$ for $C$ is \emph{knowledge sound} if for every probabilistic polynomial-time adversary $\Adv=(\Adv_0,\Adv_1)$ there exists a probabilistic polynomial-time extractor $E$ such that, whenever
+\[
+(\pp,\vp)\leftarrow S(C),\qquad (x,\mathsf{state})\leftarrow \Adv_0(\pp),\qquad \pi\leftarrow \Adv_1(\pp,x,\mathsf{state}),
+\]
+we have
+\[
+\Pr\bracket{C(x,w)=0: w\leftarrow E^{\Adv_1}(\pp,x,\mathsf{state})}
+\ge
+\Pr\bracket{V(\vp,x,\pi)=1}-\epsilon(\lambda),
+\]
+for negligible $\epsilon$.
+\end{definition}
+
+This definition packages the informal sentence:
+\begin{quote}
+If the verifier accepts with noticeable probability, then an extractor can recover a witness with almost the same probability.
+\end{quote}
+
+\begin{remark}[Why this is stronger than ordinary soundness]
+Ordinary soundness only says that a false statement cannot be accepted. Knowledge soundness additionally says that a convincing prover must encode enough information for an extractor to recover a witness. This is exactly the right notion for ``proof of knowledge.''
+\end{remark}
+
+Succinctness means both communication and verification scale sublinearly, ideally polylogarithmically, in the circuit size.
+
+\begin{definition}[SNARK]
+A SNARK is a preprocessing argument system that is complete, knowledge sound, and succinct. Succinctness informally means
+\[
+\abs{\pi}=\mathrm{poly}(\lambda,\log |C|,\log |x|)
+\quad\text{and}\quad
+\mathrm{time}(V)=\mathrm{poly}(\lambda,|x|,\log |C|).
+\]
+\end{definition}
+
+\subsection{Zero knowledge}
+
+Zero knowledge was introduced as a way to formalize proofs that reveal no additional knowledge beyond validity of the statement \cite{GoldwasserMicaliRackoff1989}. It is naturally expressed in the standard simulation-based way.
+
+\begin{definition}[Zero knowledge, simplified]
+A proof system is zero knowledge if there exists an efficient simulator $\Sim$ such that for every valid public statement $x$, the simulated transcript is computationally indistinguishable from the real one:
+\[
+(C,\pp,\vp,x,\pi_{\mathrm{real}}) \approx_c (C,\pp,\vp,x,\pi_{\mathrm{sim}}),
+\]
+where
+\[
+(\pp,\vp)\leftarrow S(C),\qquad \pi_{\mathrm{real}}\leftarrow P(\pp,x,w),\qquad (\pp,\vp,\pi_{\mathrm{sim}})\leftarrow \Sim(C,x).
+\]
+\end{definition}
+
+The key intuition is:
+\begin{quote}
+If the verifier can generate a fake proof transcript by itself, then seeing the real proof did not teach it anything extra about the witness.
+\end{quote}
+
+In modern systems, zero knowledge is usually achieved by adding random masking polynomials or random blinds to the committed witness polynomials.
+
+\subsection{Trusted setup, universal setup, and transparency}
+
+It is useful to distinguish three setup models.
+
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Circuit-specific trusted setup.} The setup depends on the exact circuit. Groth16 is the canonical example \cite{Groth2016}.
+    \item \textbf{Universal (often updatable) trusted setup.} One setup supports many circuits up to some size bound. Sonic and Plonk are canonical examples of this direction \cite{MallerBoweKohlweissMeiklejohn2019,GabizonWilliamsonCiobotaru2019}.
+    \item \textbf{Transparent setup.} No trapdoor secret exists at all. STARKs, IPA/Bulletproof-style systems, and many code-based systems are transparent \cite{Bulletproofs2018,BenSassonBentovHoreshRiabzev2018STARK}.
+\end{enumerate}
+
+The reason trapdoors matter is simple: if the prover learns the hidden setup secret, it may be able to forge proofs for false statements. Ceremony protocols are therefore used for trusted-setup systems: security survives if at least one participant honestly destroys its randomness.
+
+\subsection{A quick taxonomy of modern proof systems}
+
+The exact performance numbers of proof systems change over time, but the qualitative tradeoffs are robust.
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}p{2.9cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{3.0cm}}
+\toprule
+System family & Main strength & Main cost & Setup model \\
+\midrule
+Groth16 \cite{Groth2016} & extremely short proofs, very fast verifier & circuit-specific trusted setup & trusted, per circuit \\
+Plonk / Sonic-style systems \cite{GabizonWilliamsonCiobotaru2019,MallerBoweKohlweissMeiklejohn2019} & universal setup, short proofs, flexible arithmetization & prover slower than Groth16, still not post-quantum & trusted, universal \\
+IPA / Bulletproof-style \cite{Bulletproofs2018} & transparent, logarithmic proofs & verifier slower & transparent \\
+STARK / FRI-based \cite{BenSassonBentovHoreshRiabzev2018STARK,BenSassonBentovHoreshRiabzev2018FRI} & transparent, plausibly post-quantum, very scalable prover & large proofs & transparent \\
+DARK / Dory / related \cite{Lee2021Dory,BunzFischSzepieniec2020DARK} & transparent logarithmic-size algebraic commitments & heavier algebra, more exotic assumptions/models & transparent \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{From programs to proof systems}
+
+The software-stack picture becomes much clearer once one separates front-end programming languages from algebraic constraint systems. Real proving systems do not begin from hand-written field equations. Instead, the workflow is roughly:
+\[
+\text{high-level program} \longrightarrow \text{constraint IR} \longrightarrow \text{prover backend}.
+\]
+
+Typical high-level languages and DSLs include Circom, ZoKrates, Cairo, Leo, Noir, and others. Earlier systems also studied direct program-execution SNARKs for C and machine-code-style architectures, such as TinyRAM and von Neumann models~\cite{BenSassonChiesaGenkinTromerVirza2013,BenSassonChiesaTromerVirza2014}. The constraint intermediate representations include:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{R1CS} (Rank-1 Constraint Systems),
+    \item \textbf{Plonkish} traces and gate identities,
+    \item \textbf{AIR} (used in many STARK systems),
+    \item \textbf{PIL} or other polynomial-identity languages.
+\end{itemize}
+
+\section{Algebraic Preliminaries}
+\label{sec:algebra-preliminaries}
+
+\subsection{Finite fields}
+
+Most SNARKs arithmetize computation over a finite field. In these notes we usually write
+\[
+    \F=\F_p
+\]
+for a prime field. Elements are integers modulo a prime $p$, and every nonzero element has a multiplicative inverse. The field structure lets arithmetic circuits use addition and multiplication as primitive operations, while the finiteness of the field makes random evaluation arguments meaningful.
+
+The field must be large compared with the degrees of the polynomials that appear in the proof. A typical soundness statement has the form
+\[
+    \Pr[\text{bad polynomial identity passes}]\le \frac{D}{p},
+\]
+where $D$ is a degree bound. Cryptographic systems therefore choose $p$ large enough that this ratio is negligible.
+
+\subsection{Univariate polynomials, roots, and degree}
+
+A univariate polynomial over $\F$ is
+\[
+    f(X)=f_0+f_1X+\cdots+f_dX^d.
+\]
+The largest $i$ with $f_i\neq 0$ is the degree. The elementary fact used throughout these notes is:
+\[
+    \text{a nonzero polynomial of degree }D\text{ has at most }D\text{ roots.}
+\]
+This is the algebraic reason that checking an identity at a random point can certify a global identity with high probability.
+
+\subsection{Evaluation and interpolation}
+
+A degree-$<k$ polynomial is uniquely determined by its values at $k$ distinct field points. Given distinct points $a_0,\ldots,a_{k-1}$ and values $y_0,\ldots,y_{k-1}$, the interpolating polynomial is
+\[
+    f(X)=\sum_{i=0}^{k-1} y_i\lambda_i(X),
+\]
+where the Lagrange basis polynomial is
+\[
+    \lambda_i(X)=\prod_{j\neq i}\frac{X-a_j}{a_i-a_j}.
+\]
+Thus SNARKs can freely switch between coefficient representations and evaluation representations. Plonkish systems strongly prefer the evaluation viewpoint: witness values are placed on a structured domain, then interpolated into low-degree polynomials.
+
+\subsection{Roots of unity and subgroup domains}
+
+Let $\omega\in\F$ be a primitive $k$-th root of unity. Then
+\[
+    \omega^k=1,
+    \qquad
+    \omega^i\neq 1\quad\text{for }0<i<k.
+\]
+The associated multiplicative subgroup is
+\[
+    \Omega=\{1,\omega,\omega^2,\ldots,\omega^{k-1}\}.
+\]
+Such domains are central because shifting by $\omega$ moves to the next row:
+\[
+    X\mapsto \omega X.
+\]
+This is exactly what ProductCheck and Plonk gate checks need: local relations between neighboring positions become polynomial identities involving $f(X)$, $f(\omega X)$, and sometimes $f(\omega^2X)$.
+
+\subsection{Vanishing polynomials}
+
+For a finite set $\Omega\subseteq\F$, the vanishing polynomial is
+\[
+    Z_\Omega(X)=\prod_{a\in\Omega}(X-a).
+\]
+A polynomial $f$ vanishes on $\Omega$ iff $Z_\Omega$ divides $f$:
+\[
+    f(a)=0\ \forall a\in\Omega
+    \quad\Longleftrightarrow\quad
+    f(X)=q(X)Z_\Omega(X).
+\]
+For a multiplicative subgroup $\Omega=\{1,\omega,\ldots,\omega^{k-1}\}$,
+\[
+    Z_\Omega(X)=X^k-1.
+\]
+This special form is why subgroup domains are so efficient: the verifier can evaluate $Z_\Omega(r)=r^k-1$ in $O(\log k)$ field operations.
+
+For arbitrary subsets, the same theory works with
+\[
+    Z_\Omega(X)=\prod_{a\in\Omega}(X-a),
+\]
+but the verifier no longer gets the simple $X^k-1$ formula unless the subset is itself a subgroup or has some other special structure.
+
+\subsection{Polynomial identity testing}
+
+The DeMillo--Lipton--Schwartz--Zippel principle says that a nonzero polynomial of total degree $D$ over a field cannot vanish too often \cite{DeMilloLipton1978,Schwartz1980,Zippel1979}. In the univariate case,
+\[
+    \Pr_{r\leftarrow \F}[f(r)=0]\le \frac{\deg f}{|\F|}
+\]
+for nonzero $f$. More generally, for a nonzero multivariate polynomial $F$ of total degree $D$,
+\[
+    \Pr_{\mathbf r\leftarrow S^m}[F(\mathbf r)=0]\le \frac{D}{|S|}.
+\]
+This principle is the soundness engine behind polynomial equality testing, ZeroTest, ProductCheck, and permutation arguments.
+
+\subsection{Cyclic groups, discrete logarithms, and pairings}
+
+Polynomial commitments are cryptographic objects, so they require group assumptions in addition to field algebra. Let $\G=\langle g\rangle$ be a cyclic group of prime order $p$. In multiplicative notation, every group element has the form $g^a$ for some $a\in\F_p$, and
+\[
+    g^a\cdot g^b = g^{a+b},
+    \qquad
+    (g^a)^b=g^{ab}.
+\]
+The discrete logarithm problem is: given $g$ and $h=g^x$, find $x$. Pedersen commitments and Bulletproofs-style commitments rely on the hardness of recovering or manipulating hidden linear relations among such exponents \cite{Pedersen1991,Bulletproofs2018}.
+
+Many pairing-based SNARKs also use a bilinear map
+\[
+    e:\G\times\G\to\GT
+\]
+with
+\[
+    e(g^a,g^b)=e(g,g)^{ab}.
+\]
+Pairings let a verifier test multiplicative relations among hidden exponents. A classical cryptographic example is the BLS short-signature construction~\cite{BonehLynnShacham2001}. KZG and Groth16 both rely on this ability, though in different ways \cite{KateZaveruchaGoldberg2010,Groth2016}.
+
+\section{Polynomial Commitment Schemes}
+
+\subsection{The master paradigm: proof system + commitments}
+
+The central construction paradigm is:
+\[
+\boxed{\text{Polynomial or oracle proof} + \text{succinct commitment scheme} \Longrightarrow \text{SNARK}.}
+\]
+
+The commitment scheme lets the prover bind itself to very large algebraic objects -- vectors, univariate polynomials, multilinear tables, execution traces -- using short commitments. The proof system then only needs to inspect a few locations and to argue that those local checks imply global correctness. This is exactly the architecture behind Plonk: the Plonk layer is a polynomial IOP, and the concrete SNARK depends on which PCS is used to compile the IOP.
+
+A useful separation of responsibilities is:
+\[
+\begin{array}{c|c}
+\text{Layer} & \text{Responsibility}\\
+\hline
+\text{Arithmetization / IOP} & \text{turn circuit correctness into polynomial identities}\\
+\text{PCS} & \text{commit to polynomials and prove evaluations succinctly}\\
+\text{Fiat-Shamir \cite{FiatShamir1986}} & \text{remove public-coin interaction}\\
+\end{array}
+\]
+
+\subsection{Ordinary commitments and functional commitments}
+
+A standard commitment scheme emulates a sealed envelope:
+\[
+\Commit(m;r)\to \mathsf{com},\qquad \Verify(m,r,\mathsf{com})\to\set{0,1}.
+\]
+It should be:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{binding:} after publishing the commitment, the committer cannot open it to two different messages;
+    \item \textbf{hiding:} the commitment leaks no useful information about the message.
+\end{itemize}
+
+A \emph{functional commitment} generalizes this from messages to functions $f\in \mathcal{F}$. The prover commits to a function and later proves evaluations of the committed function at chosen points. Formally, a functional commitment for a function family $\mathcal{F}$ consists of algorithms such as
+\[
+\Setup(\lambda,\mathcal{F})\to \pp,
+\]
+\[
+\Commit(\pp,f;r)\to \mathsf{com}_f,
+\]
+plus an opening/evaluation protocol proving that
+\[
+\mathsf{com}_f \text{ indeed commits to some } f\in \mathcal{F}
+\quad\text{and}\quad
+f(u)=v.
+\]
+
+\subsection{Polynomial commitment schemes}
+
+The most important functional commitments for SNARKs are \emph{polynomial commitment schemes} (PCSs). Fix a degree bound $d$. A PCS for univariate polynomials lets a prover:
+\begin{enumerate}[leftmargin=2em]
+    \item commit succinctly to $f(X)\in \F[X]$ of degree at most $d$;
+    \item later prove succinctly that $f(u)=v$ at a chosen point $u\in\F$.
+\end{enumerate}
+
+The syntax is:
+\[
+\mathsf{KeyGen}(\lambda,\mathcal{F})\to \pp,
+\]
+\[
+\mathsf{Commit}(\pp,f)\to \mathsf{com}_f,
+\]
+\[
+\mathsf{Eval}(\pp,f,u)\to (v,\pi),
+\]
+\[
+\mathsf{Verify}(\pp,\mathsf{com}_f,u,v,\pi)\to\set{0,1}.
+\]
+
+The ideal complexity target is:
+\[
+\text{opening proof size}=\mathrm{polylog}(d),
+\qquad
+\text{verification time}=\mathrm{polylog}(d),
+\]
+with KZG even achieving constant-size openings and constant-time verification in the pairing model \cite{KateZaveruchaGoldberg2010}.
+
+The knowledge-soundness formulation for a PCS says, informally, that if an adversary first outputs a commitment $\mathsf{com}_f$ and later successfully opens it at a verifier-chosen point, then an extractor can recover a polynomial $f\in\mathcal{F}$ to which the commitment is bound. This is the PCS-level analogue of SNARK knowledge soundness.
+
+\subsection{Algebraic notation for PCS constructions}
+
+The algebraic preliminaries above introduced the two notational worlds used below. KZG uses a pairing group and a structured reference string of hidden powers. Bulletproofs-style commitments use independent discrete-log bases and recursive inner-product folding. We will switch between multiplicative notation $g^a$ and additive elliptic-curve notation $aG$ when convenient; they encode the same exponent algebra.
+
+\subsection{KZG polynomial commitments}
+
+KZG is the canonical constant-size polynomial commitment scheme of Kate, Zaverucha, and Goldberg \cite{KateZaveruchaGoldberg2010}. It is pairing-based and uses a structured reference string containing powers of a hidden trapdoor $\tau$.
+
+\subsubsection{Setup and the hidden trapdoor}
+
+Let $\G$ be a cyclic group of prime order $p$ with generator $g$, and let
+\[
+    e:\G\times\G\to\GT
+\]
+be a bilinear pairing. For degree bound $d$, the setup samples a secret $\tau\in\F_p$ and publishes
+\[
+    \pp=(g,g^\tau,g^{\tau^2},\dots,g^{\tau^d}),
+\]
+then deletes $\tau$.
+
+In additive notation, one writes
+\[
+    H_0=G,
+    \qquad
+    H_1=\tau G,
+    \qquad
+    H_2=\tau^2G,
+    \qquad
+    \ldots,
+    \qquad
+    H_d=\tau^dG.
+\]
+The secret $\tau$ must not be known to the prover after setup. If the prover knows $\tau$, it can create fake openings by directly manipulating exponents at the hidden evaluation point.
+
+\subsubsection{Commitment in coefficient form}
+
+For
+\[
+    f(X)=f_0+f_1X+\cdots+f_dX^d,
+\]
+KZG defines
+\[
+    \mathsf{com}_f=g^{f(\tau)}
+    =g^{f_0}(g^\tau)^{f_1}\cdots (g^{\tau^d})^{f_d}.
+\]
+In additive notation:
+\[
+    \mathsf{com}_f=f(\tau)G=f_0H_0+f_1H_1+\cdots+f_dH_d.
+\]
+
+The commitment is deterministic and binding under the relevant pairing assumptions, but plain KZG is not hiding. If zero knowledge is needed, the commitment and opening protocol must be randomized by adding masking terms that are algebraically consistent with the opening equation.
+
+\subsubsection{Opening a point by quotienting}
+
+To prove that $f(u)=v$, define
+\[
+    q(X)=\frac{f(X)-v}{X-u}.
+\]
+This quotient is a polynomial precisely when $v=f(u)$, because $f(u)-v=0$ means $u$ is a root of $f(X)-v$.
+
+The proof is one group element:
+\[
+    \pi=g^{q(\tau)}.
+\]
+The verifier checks
+\[
+    e(\mathsf{com}_f/g^v,g)=e(g^{\tau-u},\pi).
+\]
+Indeed, if $v=f(u)$, then
+\[
+    f(X)-v=(X-u)q(X),
+\]
+so evaluating at the hidden point gives
+\[
+    f(\tau)-v=(\tau-u)q(\tau).
+\]
+The pairing check is exactly this equality in the exponent:
+\[
+    e(g^{f(\tau)-v},g)=e(g^{\tau-u},g^{q(\tau)})=e(g,g)^{(\tau-u)q(\tau)}.
+\]
+
+In additive notation, the same check is described as wanting
+\[
+    (\tau-u)\cdot \mathsf{com}_q \stackrel{?}{=} \mathsf{com}_f-vG,
+\]
+but because the verifier does not know $\tau$, the real implementation uses a pairing to test this hidden-scalar relation.
+
+\subsubsection{Why KZG is powerful}
+
+KZG has
+\[
+    \text{commitment size}=O(1),
+    \qquad
+    \text{opening proof size}=O(1),
+    \qquad
+    \text{verification}=O(1)\text{ pairings},
+\]
+while the prover's commitment and opening work are linear in the degree bound. This is why Plonk with KZG gives very small proofs and very fast verification.
+
+\subsection{Security of KZG}
+
+\subsubsection{Binding and the q-SBDH intuition}
+
+A typical computational binding argument uses a pairing-based assumption such as $q$-Strong Bilinear Diffie-Hellman (q-SBDH). Informally, given
+\[
+    (g,g^\tau,g^{\tau^2},\ldots,g^{\tau^d}),
+\]
+it should be hard to compute an expression that behaves like
+\[
+    e(g,g)^{1/(\tau-u)}
+\]
+for a new $u$.
+
+Suppose a malicious prover commits to $f$ but successfully opens at $u$ to $v^\star\neq f(u)$. Let
+\[
+    \delta=f(u)-v^\star\neq 0.
+\]
+The verification equation implies
+\[
+    e(g^{f(\tau)-v^\star},g)=e(g^{\tau-u},\pi^\star).
+\]
+Since
+\[
+    f(\tau)-v^\star=(\tau-u)q(\tau)+\delta,
+\]
+we can rearrange the equation to isolate a term behaving like
+\[
+    e(g,g)^{\delta/(\tau-u)}.
+\]
+Because $\delta\neq 0$, this gives a way to break the q-SBDH-style assumption. This is the algebraic reason a false opening should be infeasible.
+
+\subsubsection{Knowledge soundness and the knowledge-of-exponent assumption}
+
+Binding says one cannot open a commitment two different ways. Knowledge soundness asks for more: if a prover outputs a commitment, does it actually know the polynomial behind it?
+
+One way to enforce this in KZG is to include a second, independently scaled copy of the SRS. Setup samples $\alpha$ and publishes
+\[
+    g^\alpha,g^{\alpha\tau},g^{\alpha\tau^2},\ldots,g^{\alpha\tau^d}
+\]
+alongside the usual powers of $\tau$. A commitment then consists of
+\[
+    \mathsf{com}_f=g^{f(\tau)},
+    \qquad
+    \mathsf{com}'_f=g^{\alpha f(\tau)}.
+\]
+The verifier checks consistency by
+\[
+    e(\mathsf{com}_f,g^\alpha)=e(\mathsf{com}'_f,g).
+\]
+The knowledge-of-exponent assumption says that an adversary who can produce such consistent group elements must ``know'' the coefficients used to form them. In the generic group model, similar conclusions can be argued because the adversary can only compute formal linear combinations of the SRS elements.
+
+\subsubsection{Trusted setup ceremonies}
+
+A trusted setup is dangerous if one person learns $\tau$. A multi-party ceremony reduces this risk. Suppose a current SRS contains
+\[
+    g^\tau,g^{\tau^2},\ldots,g^{\tau^d}.
+\]
+A participant samples a secret $s$ and updates it to
+\[
+    (g^\tau)^s,
+    (g^{\tau^2})^{s^2},
+    \ldots,
+    (g^{\tau^d})^{s^d}
+    =g^{\tau s},g^{(\tau s)^2},\ldots,g^{(\tau s)^d}.
+\]
+The new trapdoor is $\tau s$. If at least one participant samples $s$ honestly and deletes it, nobody knows the final trapdoor. Pairing checks can verify that the updated SRS still consists of consecutive powers.
+
+\subsection{Operational optimizations for KZG}
+
+\subsubsection{Lagrange-basis commitments}
+
+If a polynomial is represented by coefficients, computing
+\[
+    \mathsf{com}_f=f_0H_0+\cdots+f_dH_d
+\]
+is already linear time. But in SNARKs, polynomials are often represented by evaluations
+\[
+    f(a_0),f(a_1),\ldots,f(a_d)
+\]
+on an FFT domain. Naively converting these values to coefficients costs $O(d\log d)$.
+
+Let $\lambda_i(X)$ be the Lagrange basis polynomial satisfying
+\[
+    \lambda_i(a_j)=
+    \begin{cases}
+    1,&i=j,\\
+    0,&i\neq j.
+    \end{cases}
+\]
+Then
+\[
+    f(\tau)=\sum_{i=0}^{d} f(a_i)\lambda_i(\tau).
+\]
+If the SRS is transformed into Lagrange form
+\[
+    \widehat H_i=\lambda_i(\tau)G,
+\]
+then
+\[
+    \mathsf{com}_f=f(a_0)\widehat H_0+\cdots+f(a_d)\widehat H_d,
+\]
+again in linear time from the evaluation representation.
+
+\subsubsection{Batch openings}
+
+For one polynomial opened at many points $u_1,\ldots,u_m$, interpolate the claimed values to a polynomial $h$ of degree less than $m$ satisfying
+\[
+    h(u_i)=f(u_i)\quad\text{for all }i.
+\]
+Then
+\[
+    f(X)-h(X)
+\]
+vanishes at all $u_i$, so
+\[
+    f(X)-h(X)=\left(\prod_{i=1}^{m}(X-u_i)\right)q(X).
+\]
+The proof is again $g^{q(\tau)}$. For multiple polynomials, one combines the individual quotient polynomials by a random linear combination so that many claims are reduced to one aggregate opening. Multivariate variants and related polynomial-commitment ideas also appear in the PST line of work on signatures of correct computation~\cite{PapamanthouShiTamassia2013}.
+
+\subsubsection{Vector commitments from PCS}
+
+A committed vector $(u_1,\dots,u_k)$ can be interpreted as the values of a polynomial $f$ on points $1,\dots,k$. Then a PCS becomes a vector commitment:
+\begin{enumerate}[leftmargin=2em]
+    \item interpolate $f$ with $f(i)=u_i$;
+    \item commit to $f$;
+    \item open entries by proving $f(i)=u_i$.
+\end{enumerate}
+In KZG, multiple vector entries can be opened using one group element, often shorter than a Merkle proof, at the cost of pairings and trusted setup \cite{KateZaveruchaGoldberg2010}.
+
+\subsection{Bulletproofs and IPA-style polynomial commitments}
+
+KZG is extremely succinct but needs a structured trusted setup. Bulletproofs give a transparent alternative based on Pedersen vector commitments and logarithmic inner-product arguments \cite{Pedersen1991,BootleCerulliChaidosGrothPetit2016,Bulletproofs2018}. The price is that verification is no longer constant time.
+
+\subsubsection{Pedersen vector commitments}
+
+Setup samples independent-looking group generators
+\[
+    \pp=(g_0,g_1,\ldots,g_d)\in \G^{d+1}.
+\]
+Here ``independent-looking'' means no efficient adversary knows discrete-log relations among them. For
+\[
+    f(X)=f_0+f_1X+\cdots+f_dX^d,
+\]
+define
+\[
+    \mathsf{com}_f=\prod_{i=0}^{d} g_i^{f_i}.
+\]
+This is a Pedersen-style vector commitment to the coefficient vector
+\[
+    \mathbf f=(f_0,\ldots,f_d).
+\]
+The setup is transparent because the generators can be derived by hashing public labels into the group; there is no hidden trapdoor like $\tau$.
+
+\subsubsection{Evaluation as an inner product}
+
+To open at $u$, observe that
+\[
+    f(u)=\sum_{i=0}^{d}f_i u^i
+    =\iprod{\mathbf f}{\mathbf u},
+\]
+where
+\[
+    \mathbf u=(1,u,u^2,\ldots,u^d).
+\]
+Thus a polynomial opening is an inner-product claim:
+\[
+    \iprod{\mathbf f}{\mathbf u}=v
+\]
+plus the claim that $\mathsf{com}_f$ really commits to $\mathbf f$.
+
+Bulletproofs recursively reduce the length of this vector relation. Each round halves the dimension while updating the commitment, the bases, and the claimed value. After $O(\log d)$ rounds, the prover reveals one scalar.
+
+\subsubsection{The degree-three folding example}
+
+A useful core example uses
+\[
+    f(X)=f_0+f_1X+f_2X^2+f_3X^3
+\]
+and
+\[
+    \mathsf{com}_f=g_0^{f_0}g_1^{f_1}g_2^{f_2}g_3^{f_3}.
+\]
+At point $u$,
+\[
+    v=f_0+f_1u+f_2u^2+f_3u^3.
+\]
+Split the coefficients into two halves:
+\[
+    \mathbf f_L=(f_0,f_1),
+    \qquad
+    \mathbf f_R=(f_2,f_3).
+\]
+Define
+\[
+    v_L=f_0+f_1u,
+    \qquad
+    v_R=f_2+f_3u.
+\]
+Then
+\[
+    v=v_L+u^2v_R.
+\]
+The prover sends cross commitments
+\[
+    L=g_2^{f_0}g_3^{f_1},
+    \qquad
+    R=g_0^{f_2}g_1^{f_3}.
+\]
+The verifier samples a random nonzero challenge $r\in\F_p^\times$. The folded coefficients are
+\[
+    f'_0=rf_0+f_2,
+    \qquad
+    f'_1=rf_1+f_3.
+\]
+The folded bases are
+\[
+    g'_0=g_0^{r^{-1}}g_2,
+    \qquad
+    g'_1=g_1^{r^{-1}}g_3.
+\]
+The folded claimed value is
+\[
+    v'=rv_L+v_R.
+\]
+Finally, the folded commitment is
+\[
+    \mathsf{com}'=L^r\cdot \mathsf{com}_f\cdot R^{r^{-1}}.
+\]
+
+\subsubsection{Algebraic correctness of one folding round}
+
+We now verify the key identity. Starting from
+\[
+    L^r\mathsf{com}_fR^{r^{-1}}
+    =(g_2^{f_0}g_3^{f_1})^r
+    (g_0^{f_0}g_1^{f_1}g_2^{f_2}g_3^{f_3})
+    (g_0^{f_2}g_1^{f_3})^{r^{-1}},
+\]
+collect the bases:
+\[
+\begin{aligned}
+\mathsf{com}'
+&=g_0^{f_0+r^{-1}f_2}g_1^{f_1+r^{-1}f_3}g_2^{rf_0+f_2}g_3^{rf_1+f_3}\\
+&=(g_0^{r^{-1}}g_2)^{rf_0+f_2}(g_1^{r^{-1}}g_3)^{rf_1+f_3}\\
+&=(g'_0)^{f'_0}(g'_1)^{f'_1}.
+\end{aligned}
+\]
+Thus the verifier can replace the old commitment to four coefficients by a new commitment to two folded coefficients.
+
+Similarly, the verifier checks the value relation
+\[
+    v\stackrel{?}{=}v_L+u^2v_R.
+\]
+Then it continues with the folded claim that
+\[
+    v'=f'_0+f'_1u.
+\]
+The random challenge $r$ prevents the prover from choosing inconsistent left and right halves that nevertheless pass the folded relation except with small probability.
+
+\subsubsection{The general recursive protocol}
+
+For length $n=2^m$, write
+\[
+    \mathbf f=(\mathbf f_L,\mathbf f_R),
+    \qquad
+    \mathbf g=(\mathbf g_L,\mathbf g_R).
+\]
+A round sends cross commitments analogous to $L$ and $R$, receives challenge $r$, and folds
+\[
+    \mathbf f' = r\mathbf f_L+\mathbf f_R,
+\]
+\[
+    \mathbf g' = \mathbf g_L^{r^{-1}}\circ \mathbf g_R,
+\]
+where $\circ$ denotes componentwise multiplication of bases. The evaluation vector is folded compatibly, or in the polynomial-specialized presentation the verifier separately checks the decomposition of $v$ into lower- and higher-degree parts at each round.
+
+After $m=\log_2 n$ rounds, only one scalar remains. The proof contains two group elements per round plus final scalar data, so
+\[
+    \text{proof size}=O(\log d).
+\]
+The protocol is public coin and can be made non-interactive using Fiat-Shamir \cite{FiatShamir1986}.
+
+This presentation isolates the commitment-folding algebra used by Bulletproofs-style polynomial openings. A full inner-product argument also folds the evaluation vector and includes the standard inner-product consistency checks; the point here is to expose the part of the protocol that explains the logarithmic opening size.
+
+\subsubsection{Complexity and tradeoffs}
+
+For Bulletproofs-style PCS:
+\[
+\begin{array}{c|c}
+\text{Operation} & \text{Cost}\\
+\hline
+\text{Key generation} & O(d)\text{ public generators, transparent}\\
+\text{Commitment} & O(d)\text{ group exponentiations}\\
+\text{Evaluation proof} & O(d)\text{ prover work}\\
+\text{Proof size} & O(\log d)\text{ group elements}\\
+\text{Verifier time} & O(d)\text{ in the basic scheme}
+\end{array}
+\]
+The essential tradeoff is:
+\[
+\begin{array}{c}
+\text{KZG: trusted setup, constant opening}\\[0.2em]
+\text{vs.}\\[0.2em]
+\text{Bulletproofs: transparent setup, logarithmic opening}.
+\end{array}
+\]
+This is why Halo-style systems can avoid trusted setup by using an IPA/Bulletproofs PCS, but the verifier is typically slower than in KZG-based Plonk.
+
+\subsection{Other pairing- and discrete-log-based PCS families}
+
+Several important schemes sit around KZG and Bulletproofs:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Hyrax} arranges coefficients as a two-dimensional matrix, improving verifier time to roughly $O(\sqrt d)$ while using discrete-log assumptions \cite{WahbyTziallaShelatThalerWalfish2018}.
+    \item \textbf{Dory} uses pairings and inner pairing-product arguments to delegate structured verifier work to the prover, obtaining $O(\log d)$ proof size and $O(\log d)$ verifier time \cite{Lee2021Dory}.
+    \item \textbf{DARK} uses groups of unknown order to obtain logarithmic proof size and verifier time without a conventional trusted setup \cite{BunzFischSzepieniec2020DARK}.
+    \item \textbf{FRI/code-based PCS} replace group exponentiations with hashing and low-degree testing \cite{BenSassonBentovHoreshRiabzev2018FRI}. They are transparent and plausibly post-quantum, but proofs are much larger.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{3.0cm}}
+\toprule
+Scheme & Setup & Proof size & Verifier & Main assumption \\
+\midrule
+KZG & trusted & $O(1)$ & $O(1)$ & pairings, q-SBDH-style assumptions \\
+Bulletproofs / IPA & transparent & $O(\log d)$ & $O(d)$ & discrete logarithm \\
+Hyrax \cite{WahbyTziallaShelatThalerWalfish2018} & transparent & $O(\sqrt d)$ & $O(\sqrt d)$ & discrete logarithm \\
+Dory \cite{Lee2021Dory} & transparent & $O(\log d)$ & $O(\log d)$ & pairings \\
+DARK \cite{BunzFischSzepieniec2020DARK} & transparent & $O(\log d)$ & $O(\log d)$ & unknown-order groups \\
+FRI / code-based & transparent & larger, often polylogarithmic & hash and query heavy & collision-resistant hashes, codes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Polynomial IOPs and the IOP-to-SNARK Paradigm}
+
+\subsection{Interactive proofs, IOPs, and polynomial IOPs}
+
+To use polynomial commitments inside proof systems, recall the following hierarchy:
+\begin{itemize}[leftmargin=2em]
+    \item an \textbf{interactive proof (IP)} exchanges a small number of messages;
+    \item an \textbf{interactive oracle proof (IOP)} allows the prover to send long oracles that the verifier only queries in a few places;
+    \item a \textbf{polynomial IOP} is an IOP in which the prover's main oracle messages are polynomials.
+\end{itemize}
+
+A polynomial IOP for circuit satisfiability has the form
+\[
+\Setup(C)\to (\pp,\vp),
+\]
+then the prover sends oracle access to a few polynomials $f_1,\dots,f_t$, the verifier samples random challenges $r_1,\dots,r_s$, and finally checks algebraic identities involving evaluations of those polynomials.
+
+The key point is that the verifier never needs to read entire witness polynomials. It suffices to query them at a few random points.
+
+\subsection{From a polynomial IOP to a SNARK}
+
+Suppose a polynomial IOP commits to $t$ polynomials and the verifier needs $q$ evaluation proofs. If we instantiate the commitment layer with a PCS, then:
+\begin{itemize}[leftmargin=2em]
+    \item the prover sends $t$ polynomial commitments;
+    \item each queried evaluation is accompanied by a PCS opening proof;
+    \item the IOP's verifier logic is run on the opened values.
+\end{itemize}
+
+If the IOP is public coin, the Fiat-Shamir transform removes interaction by deriving verifier challenges from a hash of the transcript \cite{FiatShamir1986}:
+\[
+ r_1 = H(C,x,\mathsf{com}_1,\dots),\qquad
+ r_2 = H(C,x,\mathsf{com}_1,\dots,r_1,\dots),\quad \text{etc.}
+\]
+
+This yields a non-interactive argument in the random oracle model. Non-interactive zero knowledge in the common-reference-string model originates with Blum, Feldman, and Micali \cite{BlumFeldmanMicali1988}; Fiat-Shamir is a different route, usually modeled through a random oracle.
+
+\subsection{Complexity bookkeeping}
+
+If the PCS commitment size is $\mathsf{pcsCom}$ and the opening size is $\mathsf{pcsOpen}$, then the resulting proof length is roughly
+\[
+ t\cdot \mathsf{pcsCom} + q\cdot \mathsf{pcsOpen}.
+\]
+The verifier's work is roughly
+\[
+ q\cdot \mathrm{time}(\mathsf{PCS\ verify}) + \mathrm{time}(\text{IOP verifier}),
+\]
+and the prover's work is roughly
+\[
+ t\cdot \mathrm{time}(\mathsf{Commit}) + q\cdot \mathrm{time}(\mathsf{Open}) + \mathrm{time}(\text{IOP prover}).
+\]
+
+This formula explains why the same Plonk IOP can lead to very different systems:
+\[
+\begin{array}{c|c|c}
+\text{PCS} & \text{Resulting flavor} & \text{Typical tradeoff}\\
+\hline
+\text{KZG \cite{KateZaveruchaGoldberg2010}} & \text{Aztec/JellyFish-style Plonk} & \text{short proofs, trusted setup}\\
+\text{IPA/Bulletproofs \cite{Bulletproofs2018}} & \text{Halo2-style Plonkish systems} & \text{transparent, slower verifier}\\
+\text{FRI \cite{BenSassonBentovHoreshRiabzev2018FRI}} & \text{Plonky2/STARK-like systems} & \text{transparent, hash-based, larger proofs}\\
+\end{array}
+\]
+
+
+\section{Univariate Polynomial IOP Gadgets}
+
+\subsection{Polynomial identity testing: the algebraic engine}
+
+The starting point is the Schwartz--Zippel--DeMillo--Lipton lemma \cite{DeMilloLipton1978,Schwartz1980,Zippel1979}.
+
+\begin{lemma}[Schwartz-Zippel]
+Let $f\in \F[X]$ be a nonzero polynomial of degree at most $d$. If $r\leftarrow \F$ is uniform, then
+\[
+\Pr[f(r)=0]\le \frac{d}{|\F|}.
+\]
+The same statement holds for multivariate polynomials when $d$ is replaced by the total degree.
+\end{lemma}
+
+This turns polynomial equality into random-point testing:
+\[
+    f=g \implies f(r)=g(r),
+\]
+and conversely
+\[
+    f(r)=g(r) \text{ at a random }r
+\]
+strongly suggests $f=g$ provided the field is large relative to the degree. In common cryptographic parameter regimes one often has $p\approx 2^{256}$ and $d\le 2^{40}$, so $d/p$ is negligible.
+
+In a compiled proof system, the verifier does not query raw polynomials. Instead, the prover opens committed polynomials at $r$ using the PCS. The IOP verifier checks the algebraic equality on opened values; the PCS verifier checks that these values are consistent with the earlier commitments.
+
+\subsection{Using vanishing polynomials in IOP gadgets}
+
+The algebraic preliminaries introduced the vanishing polynomial
+\[
+    Z_\Omega(X)=\prod_{a\in\Omega}(X-a).
+\]
+The gadgets below repeatedly use the same template: to prove that a polynomial $F$ vanishes on a domain $\Omega$, the prover supplies a quotient $q$ satisfying
+\[
+    F(X)=q(X)Z_\Omega(X).
+\]
+For multiplicative subgroup domains this is especially efficient because $Z_\Omega(X)=X^k-1$. For smaller subdomains, such as the set of gate-start positions in a simplified Plonk trace, one should use the actual vanishing polynomial of that subdomain; it need not be of the form $X^k-1$.
+
+\subsection{ZeroTest}
+
+\textbf{Goal.} Given a committed polynomial $f$, prove
+\[
+    f(a)=0\qquad\forall a\in\Omega.
+\]
+
+The prover computes
+\[
+    q(X)=\frac{f(X)}{Z_\Omega(X)}.
+\]
+The verifier samples $r\leftarrow\F$ and asks for openings of $f(r)$ and $q(r)$, then checks
+\[
+    f(r)\stackrel{?}{=}q(r)Z_\Omega(r).
+\]
+
+Completeness is immediate. For soundness, if $f$ is not divisible by $Z_\Omega$, then
+\[
+    f(X)-q(X)Z_\Omega(X)
+\]
+is a nonzero polynomial of controlled degree. By Schwartz-Zippel, it vanishes at a random $r$ with probability at most degree$/|\F|$.
+
+In compiled SNARK form, $q$ is also committed, and the openings at $r$ are verified by the PCS.
+
+\subsection{SumCheck on a subgroup}
+
+\textbf{Goal.} Given a committed polynomial $f$, prove
+\[
+    \sum_{a\in\Omega}f(a)=0.
+\]
+For univariate subgroup domains, a convenient way is to construct an accumulator polynomial $s$ satisfying
+\[
+    s(\omega^0)=f(\omega^0),
+\]
+\[
+    s(\omega^i)=\sum_{j=0}^{i} f(\omega^j)
+    \qquad (1\le i\le k-1).
+\]
+Then
+\[
+    \sum_{a\in\Omega} f(a)=0
+\]
+is equivalent to
+\[
+    s(\omega^{k-1})=0
+\]
+plus the local recurrence
+\[
+    s(\omega X)-s(X)-f(\omega X)=0
+    \qquad\text{for all }X\in\Omega.
+\]
+The recurrence is checked by a ZeroTest on the polynomial
+\[
+    s(\omega X)-s(X)-f(\omega X).
+\]
+This is the additive analogue of the ProductCheck below.
+
+\subsection{ProductCheck}
+
+ProductCheck is one of the most important univariate gadgets in Plonk-style systems. It converts a global multiplicative statement into a low-degree recurrence.
+
+\subsubsection*{The problem statement}
+
+Let
+\[
+    \Omega=\set{1,\omega,\omega^2,\ldots,\omega^{k-1}}
+\]
+be a multiplicative subgroup. Given a committed polynomial $f$, prove
+\[
+    \prod_{a\in\Omega} f(a)=1.
+\]
+Directly multiplying all $k$ values would be expensive for the verifier. Instead, the prover commits to a running product polynomial.
+
+\subsubsection*{The running product polynomial}
+
+Define $t\in\polydeg{k}$ by its values on $\Omega$:
+\[
+    t(1)=f(1),
+\]
+\[
+    t(\omega^s)=\prod_{i=0}^{s}f(\omega^i)
+    \qquad s=1,\ldots,k-1.
+\]
+Thus
+\[
+    t(\omega)=f(1)f(\omega),
+\]
+\[
+    t(\omega^2)=f(1)f(\omega)f(\omega^2),
+\]
+and finally
+\[
+    t(\omega^{k-1})=\prod_{a\in\Omega}f(a).
+\]
+Therefore the claimed product equals $1$ if
+\[
+    t(\omega^{k-1})=1.
+\]
+
+The local recurrence is
+\[
+    t(\omega X)=t(X)f(\omega X)
+    \qquad\forall X\in\Omega.
+\]
+The indexing is worth noticing: the recurrence multiplies by $f(\omega X)$, not $f(X)$, because $t(\omega^s)$ includes the value at $\omega^s$.
+
+\subsubsection*{The cyclic last step}
+
+The final point in the subgroup is $X=\omega^{k-1}$. Since $\omega^k=1$, the recurrence at this last point reads
+\[
+    t(1)=t(\omega^{k-1})f(1).
+\]
+At first this may look circular, because $t(1)$ is also the first running-product value. But this is exactly why the boundary condition is chosen as $t(\omega^{k-1})=1$. Under that condition, the last recurrence becomes
+\[
+    f(1)=1\cdot f(1),
+\]
+so the cyclic wrap-around is consistent. This small indexing point is one of the most common sources of confusion when first learning ProductCheck.
+
+\subsubsection*{Turning the recurrence into a ZeroTest}
+
+Define
+\[
+    t_1(X)=t(\omega X)-t(X)f(\omega X).
+\]
+If the recurrence is correct, then
+\[
+    t_1(X)=0\qquad \forall X\in\Omega.
+\]
+Hence $Z_\Omega(X)=X^k-1$ divides $t_1(X)$, so the prover can form
+\[
+    q(X)=\frac{t_1(X)}{X^k-1}.
+\]
+The verifier samples $r\leftarrow\F$ and asks for openings of
+\[
+    t(\omega^{k-1}),\quad t(r),\quad t(\omega r),\quad q(r),\quad f(\omega r).
+\]
+It accepts if
+\[
+    t(\omega^{k-1})\stackrel{?}{=}1
+\]
+and
+\[
+    t(\omega r)-t(r)f(\omega r)
+    \stackrel{?}{=}
+    q(r)(r^k-1).
+\]
+
+This unoptimized ProductCheck protocol uses two new committed polynomials, $t$ and $q$, and five evaluations. The verifier's non-PCS arithmetic is essentially computing $r^k-1$, which costs $O(\log k)$ field operations by repeated squaring.
+
+\subsubsection*{Soundness intuition}
+
+If the prover lies about the product, then at least one of two things must happen:
+\begin{enumerate}[leftmargin=2em]
+    \item the boundary value $t(\omega^{k-1})$ is not $1$; or
+    \item $t$ does not honestly encode the running product, in which case $t_1$ fails to vanish on $\Omega$.
+\end{enumerate}
+The second case is caught by the ZeroTest. Since the final check is a random polynomial identity test, the cheating probability is bounded by the relevant degree divided by $|\F|$.
+
+\subsection{Rational ProductCheck}
+
+The same idea proves product identities for rational functions. Suppose the goal is
+\[
+    \prod_{a\in\Omega}\frac{f(a)}{g(a)}=1,
+\]
+assuming all denominators are nonzero on $\Omega$.
+
+Define
+\[
+    t(1)=\frac{f(1)}{g(1)},
+\]
+\[
+    t(\omega^s)=\prod_{i=0}^{s}\frac{f(\omega^i)}{g(\omega^i)}
+    \qquad s=1,\ldots,k-1.
+\]
+Then the boundary condition is again
+\[
+    t(\omega^{k-1})=1,
+\]
+and the recurrence becomes
+\[
+    t(\omega X)g(\omega X)=t(X)f(\omega X)
+    \qquad\forall X\in\Omega.
+\]
+Define
+\[
+    t_1(X)=t(\omega X)g(\omega X)-t(X)f(\omega X).
+\]
+Then run ZeroTest on $t_1$ over $\Omega$.
+
+This rational version is the bridge from ProductCheck to permutation and wiring arguments.
+
+In randomized permutation arguments, the denominators depend on verifier challenges. A small set of ``bad'' challenges may make a denominator vanish. Protocol descriptions usually exclude those challenges or absorb their probability into the usual Schwartz--Zippel-style soundness error.
+
+\subsection{PermutationCheck via randomized products}
+
+\textbf{Goal.} Given committed polynomials $f$ and $g$, prove that the two lists
+\[
+    (f(1),f(\omega),\ldots,f(\omega^{k-1}))
+\]
+and
+\[
+    (g(1),g(\omega),\ldots,g(\omega^{k-1}))
+\]
+are the same multiset.
+
+Define the characteristic polynomials of the two multisets:
+\[
+    \widehat f(Z)=\prod_{a\in\Omega}(Z-f(a)),
+\]
+\[
+    \widehat g(Z)=\prod_{a\in\Omega}(Z-g(a)).
+\]
+The two lists are permutations of each other iff
+\[
+    \widehat f(Z)=\widehat g(Z).
+\]
+By Schwartz-Zippel, it suffices to choose random $r\leftarrow\F$ and prove
+\[
+    \widehat f(r)=\widehat g(r).
+\]
+Equivalently,
+\[
+    \prod_{a\in\Omega}\frac{r-f(a)}{r-g(a)}=1.
+\]
+This is exactly a rational ProductCheck with
+\[
+    F(a)=r-f(a),
+    \qquad
+    G(a)=r-g(a).
+\]
+This technique is often called Lipton's trick: equality of large multisets is reduced to equality of two random products. Closely related product and shuffle arguments appear in efficient zero-knowledge shuffle proofs \cite{BayerGroth2012}.
+
+\subsection{Prescribed permutation checks}
+
+The previous gadget proves that two lists are equal up to some unknown permutation. Plonk wiring constraints need more: the permutation is prescribed by the circuit.
+
+Let
+\[
+    W:\Omega\to\Omega
+\]
+be a known permutation. In protocols it is often encoded by its own low-degree interpolation polynomial on $\Omega$, but that polynomial should not be interpreted as a cheap function to compose inside $g(W(X))$. Given committed polynomials $f$ and $g$, the goal is
+\[
+    f(y)=g(W(y))\qquad\forall y\in\Omega.
+\]
+A direct ZeroTest of
+\[
+    f(X)-g(W(X))
+\]
+is not efficient, because the composition $g(W(X))$ can have degree about $k^2$ even when $f$, $g$, and $W$ individually have degree $O(k)$. That would destroy the linear/quasilinear prover goal.
+
+The trick is to encode pairs. Consider the two multisets
+\[
+    \set{(W(a),f(a)):a\in\Omega}
+\]
+and
+\[
+    \set{(a,g(a)):a\in\Omega}.
+\]
+The reason for introducing pairs is conceptual: the first coordinate identifies a wire slot, while the second coordinate records the value stored in that slot. Equality of the pair multisets says that every destination slot receives exactly the value it should receive.
+
+If these multisets are equal, then the value attached to $W(a)$ on the left matches the value attached to the same point on the right, which implies
+\[
+    f(a)=g(W(a))
+\]
+for every $a\in\Omega$.
+
+To test equality of pair-multisets, define bivariate polynomials
+\[
+    \widehat F(X,Y)=\prod_{a\in\Omega}\bigl(X-YW(a)-f(a)\bigr),
+\]
+\[
+    \widehat G(X,Y)=\prod_{a\in\Omega}\bigl(X-Ya-g(a)\bigr).
+\]
+Because $\F[X,Y]$ is a unique factorization domain, equality of these products of linear factors is equivalent to equality of the corresponding multisets of pairs.
+
+The verifier samples random $r,s\leftarrow\F$ and asks the prover to prove
+\[
+    \widehat F(r,s)=\widehat G(r,s).
+\]
+This is equivalent to the rational product identity
+\[
+    \prod_{a\in\Omega}
+    \frac{r-sW(a)-f(a)}{r-sa-g(a)}
+    =1.
+\]
+Again, a rational ProductCheck proves the identity without explicitly constructing the degree-$k$ bivariate products.
+
+\section{The Plonk Polynomial IOP}
+\label{sec:plonk-iop}
+
+\subsection{A pedagogical one-column Plonk arithmetization}
+
+This section presents a pedagogical one-column version of Plonk. Real Plonkish systems usually use several witness columns and row-wise gate identities; the one-column presentation below is meant to make the algebraic dependencies visible before introducing production-level notation.
+
+Plonk can be presented as a polynomial IOP for arithmetic circuits. Consider the circuit
+\[
+    (x_1+x_2)(x_2+w_1).
+\]
+With input values
+\[
+    x_1=5,
+    \qquad
+    x_2=6,
+    \qquad
+    w_1=1,
+\]
+the three gates are:
+\[
+\begin{array}{c|ccc}
+\text{Gate} & \text{left input} & \text{right input} & \text{output}\\
+\hline
+0 & 5 & 6 & 11\\
+1 & 6 & 1 & 7\\
+2 & 11 & 7 & 77
+\end{array}
+\]
+Gate $0$ and gate $1$ are additions. Gate $2$ is a multiplication.
+
+The simplified encoding uses one trace polynomial $T$. Let $|C|$ be the number of gates and $|I|=|I_x|+|I_w|$ the total number of public and witness inputs. Define
+\[
+    d=3|C|+|I|.
+\]
+Choose a subgroup
+\[
+    \Omega=\set{1,\omega,\omega^2,\ldots,\omega^{d-1}}.
+\]
+The trace polynomial $T\in\polydeg{d}$ is defined by:
+\[
+    T(\omega^{-j})=\text{input number }j
+    \qquad j=1,\ldots,|I|,
+\]
+and, for gate $\ell=0,\ldots,|C|-1$,
+\[
+    T(\omega^{3\ell})=\text{left input of gate }\ell,
+\]
+\[
+    T(\omega^{3\ell+1})=\text{right input of gate }\ell,
+\]
+\[
+    T(\omega^{3\ell+2})=\text{output of gate }\ell.
+\]
+Since these values are specified on a domain, the prover can interpolate $T$ by FFT/NTT methods.
+
+\subsection{The four conditions that make a valid trace}
+
+The prover commits to $T$. The verifier must be convinced of four facts.
+
+\subsubsection*{(1) Public input correctness}
+
+Let $v(X)$ be the low-degree polynomial interpolated by the verifier from the public inputs. Let
+\[
+    \Omega_{\mathrm{inp}}=\set{\omega^{-1},\ldots,\omega^{-|I_x|}}.
+\]
+The public input check is
+\[
+    T(y)-v(y)=0
+    \qquad\forall y\in\Omega_{\mathrm{inp}}.
+\]
+This is a ZeroTest over the input subset.
+
+\subsubsection*{(2) Gate correctness}
+
+Introduce a selector polynomial $S(X)$ such that, at each gate-start point $y=\omega^{3\ell}$,
+\[
+S(y)=
+\begin{cases}
+1,&\text{if gate }\ell\text{ is addition},\\
+0,&\text{if gate }\ell\text{ is multiplication}.
+\end{cases}
+\]
+Let
+\[
+    \Omega_{\mathrm{gates}}=\set{1,\omega^3,\omega^6,\ldots,\omega^{3(|C|-1)}}.
+\]
+For every $y\in\Omega_{\mathrm{gates}}$, the gate equation is
+\[
+S(y)\bigl(T(y)+T(\omega y)\bigr)
++\bigl(1-S(y)\bigr)T(y)T(\omega y)
+-T(\omega^2y)=0.
+\]
+If $S(y)=1$, this says left plus right equals output. If $S(y)=0$, it says left times right equals output.
+
+\subsubsection*{(3) Wiring correctness}
+
+The circuit imposes copy constraints. For example, the same value $x_2=6$ may appear as a public input, as the right input of gate $0$, and as the left input of gate $1$. These equalities are encoded by a permutation
+\[
+    W:\Omega\to\Omega
+\]
+whose cycles connect slots that must hold the same value. The logical wiring condition is
+\[
+    T(y)=T(W(y))
+    \qquad\forall y\in\Omega.
+\]
+It is proved using the prescribed permutation check above, not by directly composing $T(W(X))$.
+
+\subsubsection*{(4) Output correctness}
+
+If the convention is that the circuit output should be zero, then the final gate output position is checked as
+\[
+    T(\omega^{3|C|-1})=0.
+\]
+If the desired output is a public value $y_{\mathrm{out}}$, one can either check
+\[
+    T(\omega^{3|C|-1})=y_{\mathrm{out}}
+\]
+directly by a PCS opening, or append a final subtraction gate so that the zero-output convention applies.
+
+\subsection{The complete Plonk Poly-IOP}
+
+The setup for the simplified IOP outputs the circuit-dependent polynomials
+\[
+    S,\quad W,
+\]
+where $S$ encodes gate types and $W$ encodes wiring. The prover constructs and commits to $T$. It then proves:
+\begin{enumerate}[leftmargin=2em]
+    \item $T(y)-v(y)=0$ on $\Omega_{\mathrm{inp}}$;
+    \item the gate polynomial
+    \[
+    S(X)(T(X)+T(\omega X))+(1-S(X))T(X)T(\omega X)-T(\omega^2X)
+    \]
+    vanishes on $\Omega_{\mathrm{gates}}$;
+    \item wiring correctness by the prescribed permutation ProductCheck;
+    \item output correctness at the final output point.
+\end{enumerate}
+
+In the full Plonk analysis, the resulting Poly-IOP is complete and knowledge sound under a degree-to-field-size condition such as $7|C|/p$ being negligible \cite{GabizonWilliamsonCiobotaru2019}. The exact constant is less important than the principle: all possible cheating strategies are reduced to nonzero polynomial identities that would have to vanish at random points.
+
+When this public-coin IOP is compiled with a PCS and Fiat-Shamir, the result is a SNARK \cite{FiatShamir1986}.
+
+\subsection{Why this is efficient}
+
+The design is efficient for three mutually reinforcing reasons:
+\begin{enumerate}[leftmargin=2em]
+    \item the whole witness is compressed into a few low-degree polynomials;
+    \item global constraints are reduced to polynomial identities on subgroups;
+    \item those identities are checked at a few random points, not everywhere.
+\end{enumerate}
+
+The heavy lifting is shifted to fast polynomial arithmetic (FFT/NTT, interpolation, quotient computation) and succinct opening proofs.
+
+\subsection{From simplified Plonk to modern Plonkish systems}
+
+The simplified one-column trace above is only a teaching model. Real Plonkish systems are more expressive.
+
+\begin{itemize}[leftmargin=2em]
+    \item They usually use multiple witness columns rather than a single trace polynomial.
+    \item They allow \textbf{custom gates}, so one row can enforce an identity more general than a pure $+$ or $\times$ gate.
+    \item They use \textbf{lookup arguments}, for example Plookup~\cite{GabizonWilliamson2020Plookup}, to prove that values belong to fixed tables.
+    \item They often use a \textbf{grand product polynomial} to implement permutation/copy constraints more compactly.
+    \item They can be paired with KZG, IPA/Bulletproofs, or FRI to obtain different concrete SNARK systems.
+\end{itemize}
+
+A representative custom gate has the form
+\[
+    v(\omega y)+w(y)t(y)-t(\omega y)=0
+    \qquad\forall y\in\Omega_{\mathrm{gates}}.
+\]
+Such identities are simply added to the gate-check polynomial.
+
+HyperPlonk-style systems replace the univariate subgroup domain by the Boolean hypercube $\set{0,1}^t$ and replaces univariate ZeroTests by multilinear SumCheck protocols. The motivation is to reduce prover time by avoiding some expensive univariate quotient computations.
+
+\subsection{Choice of PCS determines the concrete SNARK}
+
+One of the deepest practical lessons is that the same underlying Plonk IOP can be combined with different commitment layers:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Plonk + KZG} gives short proofs and very fast verification, but needs a trusted setup \cite{KateZaveruchaGoldberg2010,GabizonWilliamsonCiobotaru2019}.
+    \item \textbf{Plonk + IPA/Bulletproof-style PCS} gives transparency but slower verification \cite{Bulletproofs2018}.
+    \item \textbf{Plonk + FRI} gives transparency and plausible post-quantum security, but larger proofs \cite{BenSassonBentovHoreshRiabzev2018FRI}.
+\end{itemize}
+
+This explains why ``Plonk'' in practice is best thought of as an \emph{arithmetization / IOP layer}, not as one single monolithic proving system.
+
+
+\section{Groth16 and Pairing-Based SNARKs}
+\label{sec:groth16}
+
+The previous chapters developed the Plonk route to SNARKs: computation is represented as a trace, local constraints become polynomial identities, and wiring is enforced by a permutation argument. Groth16 follows a different but equally central route. It starts from a rank-1 constraint system (R1CS), converts that system into a quadratic arithmetic program (QAP), and then uses pairings to prove the resulting QAP relation succinctly \cite{GennaroGentryParnoRaykova2013,ParnoHowellGentryRaykova2013,Groth2016}.
+
+This chapter stops at the arithmetization boundary:
+\[
+\text{algebraic circuit}\quad\longrightarrow\quad\text{R1CS}\quad\longrightarrow\quad\text{QAP}.
+\]
+The later pairing-based proving and verification equations of Groth16 are intentionally postponed.
+
+\subsection{The arithmetization pipeline}
+
+A high-level program is not directly suitable for a succinct proof. It must first be converted into algebraic statements over a field. For the Groth16 route, the pipeline is:
+\[
+\boxed{
+\text{arithmetic circuit}
+\longrightarrow
+\text{flattened gates}
+\longrightarrow
+\text{R1CS matrices}
+\longrightarrow
+\text{QAP divisibility}
+}
+\]
+The conceptual transformation is:
+\[
+\begin{array}{c}
+\text{the circuit is evaluated correctly}\\[0.2em]
+\Longleftrightarrow\quad \text{all rank-1 constraints are satisfied}\\[0.2em]
+\Longleftrightarrow\quad P_z(r)=0\text{ for every constraint point }r\in H\\[0.2em]
+\Longleftrightarrow\quad Z_H(X)\mid P_z(X).
+\end{array}
+\]
+The last equivalence is the same algebraic principle that appeared in ZeroTest: if a polynomial is zero on a domain $H$, then it is divisible by the vanishing polynomial
+\[
+    Z_H(X)=\prod_{r\in H}(X-r).
+\]
+
+\subsection{From algebraic circuits to R1CS}
+
+An arithmetic circuit over a field $\F$ consists of wires carrying field elements and gates computing additions or multiplications. A satisfying assignment contains public inputs, private witness values, and auxiliary wire values introduced during computation. We write these values as a single vector
+\[
+    z=(z_0,z_1,\ldots,z_{n-1})\in\F^n,
+\]
+where $z_0=1$ is reserved for constants. Appendix~\ref{app:r1cs-qap-example} gives a color-coded example in which variable colors track columns and constraint colors track rows, so that each R1CS matrix entry can be followed into its corresponding QAP term.
+
+The first step is \emph{flattening}: every complex expression is decomposed into elementary equations whose left and right sides are linear forms, except for one multiplication between two linear forms. A general R1CS constraint has the shape
+\begin{tcolorbox}
+\[
+    (\text{linear form in }z)\cdot(\text{linear form in }z)
+    =
+    (\text{linear form in }z).
+\]
+\end{tcolorbox}
+Thus an addition gate such as
+\[
+    v=x_1+x_2
+\]
+can be written as
+\[
+    (x_1+x_2)\cdot 1=v,
+\]
+while a multiplication gate such as
+\[
+    y=v_1v_2
+\]
+is already of the form
+\[
+    v_1\cdot v_2=y.
+\]
+
+Formally, an R1CS instance with $m$ constraints and $n$ variables consists of three matrices
+\[
+    A,B,C\in\F^{m\times n}.
+\]
+The $i$th row of each matrix defines a linear form:
+\[
+    A_i\cdot z,
+    \qquad
+    B_i\cdot z,
+    \qquad
+    C_i\cdot z.
+\]
+The $i$th constraint is
+\[
+    (A_i\cdot z)(B_i\cdot z)=C_i\cdot z.
+\]
+Equivalently, all constraints can be written compactly as
+\[
+    (Az)\circ(Bz)=Cz,
+\]
+where $\circ$ denotes component-wise multiplication, not matrix multiplication. Each row is therefore one rank-1 multiplicative equation: the product of two linear forms equals a third linear form.
+
+This representation is powerful because it separates the \emph{shape of the computation}, stored in $A,B,C$, from the \emph{specific execution}, stored in $z$. The public statement usually fixes some coordinates of $z$, while the prover supplies the private witness and auxiliary wire values.
+
+\subsection{From R1CS to QAP}
+
+R1CS is still a list of $m$ separate equations. A verifier who directly checks all rows must inspect the constraints one by one. The QAP transformation compresses the list into a single polynomial divisibility statement.
+
+Choose a constraint domain
+\[
+    H=\{r_1,r_2,\ldots,r_m\}\subset\F
+\]
+of $m$ distinct field elements, one point for each R1CS row. Its vanishing polynomial is
+\[
+    Z_H(X)=\prod_{i=1}^{m}(X-r_i).
+\]
+For every variable index $j\in\{0,\ldots,n-1\}$, interpolate three polynomials
+\[
+    A_j(X),\qquad B_j(X),\qquad C_j(X)
+\]
+from the $j$th columns of the R1CS matrices:
+\[
+    A_j(r_i)=A_{i,j},
+    \qquad
+    B_j(r_i)=B_{i,j},
+    \qquad
+    C_j(r_i)=C_{i,j}
+    \qquad
+    \text{for all }i.
+\]
+In words, the $j$th column of $A$ becomes the polynomial $A_j(X)$, the $j$th column of $B$ becomes $B_j(X)$, and the $j$th column of $C$ becomes $C_j(X)$.
+
+Given an assignment $z=(z_0,\ldots,z_{n-1})$, combine these column polynomials using the assignment values as coefficients:
+\[
+    A_z(X)=\sum_{j=0}^{n-1}z_jA_j(X),
+    \qquad
+    B_z(X)=\sum_{j=0}^{n-1}z_jB_j(X),
+    \qquad
+    C_z(X)=\sum_{j=0}^{n-1}z_jC_j(X).
+\]
+At the constraint point $r_i$, interpolation gives
+\[
+    A_z(r_i)=\sum_j z_jA_j(r_i)=\sum_j z_jA_{i,j}=A_i\cdot z,
+\]
+with analogous equalities for $B_z(r_i)$ and $C_z(r_i)$. Therefore the $i$th R1CS constraint is equivalent to
+\[
+    A_z(r_i)B_z(r_i)-C_z(r_i)=0.
+\]
+Define the QAP numerator polynomial
+\[
+    P_z(X)=A_z(X)B_z(X)-C_z(X).
+\]
+Then the entire R1CS system is satisfied if and only if
+\[
+    P_z(r_i)=0\qquad\text{for every }r_i\in H.
+\]
+By the vanishing-polynomial criterion, this is equivalent to
+\begin{tcolorbox}
+\[
+    Z_H(X)\mid P_z(X),
+\]
+or, equivalently, there exists a quotient polynomial $h_z(X)$ such that
+\[
+    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+\]
+\end{tcolorbox}
+This is the QAP relation. It is the exact algebraic statement that later pairing-based SNARKs prove succinctly.
+
+\subsection{Where Groth16 begins}
+
+At the QAP stage, computation correctness has become the claim that the prover knows an assignment $z$ and a quotient polynomial $h_z$ satisfying
+\[
+    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+\]
+Groth16 begins by evaluating this relation at a hidden setup point $\tau$, encoding the resulting values in a structured reference string, and using pairings to check the multiplicative relation without revealing the witness. The proving and verification equations, public-input separation, toxic-waste structure, and zero-knowledge blinding terms will be developed in a later iteration.
+
+\section{Synthesis and Outlook}
+
+The conceptual chain across the preceding sections is now visible:
+\begin{enumerate}[leftmargin=2em]
+    \item Start with the goal of proving knowledge of a witness for a circuit.
+    \item Encode the circuit and witness algebraically.
+    \item Reduce global correctness to a handful of polynomial identities.
+    \item Commit to the polynomials succinctly.
+    \item Check those identities at random points and make the interaction non-interactive via Fiat-Shamir.
+\end{enumerate}
+
+At this point one can already understand the architecture of a large fraction of modern proof systems. Later topics can explore different instantiations of the same template: different arithmetizations, different commitment schemes, different recursion techniques, and different implementation tradeoffs. The R1CS/QAP route developed above is the arithmetization layer for Groth16. The next technical layer to be developed is the pairing-based proof protocol itself: the structured reference string, the prover's group elements, the verifier's pairing equation, and the zero-knowledge blinding terms~\cite{Groth2016}.
+
+\clearpage
+\bibliographystyle{alpha}
+\bibliography{snark_notes_r1cs_qap_colortrace_references}
+\clearpage
+
+\appendix
+
+\section{A Complete Bulletproofs-Style Polynomial Opening Example}
+
+This appendix gives a concrete exponent-level example of the Bulletproofs / IPA-style folding idea \cite{Bulletproofs2018}. The example is not cryptographically secure because the field is tiny; it is meant to make the algebra visible.
+
+\subsection{The polynomial opening claim}
+
+Work over
+\[
+    \F_{97}.
+\]
+Let
+\[
+    f(X)=2+4X+X^2+3X^3.
+\]
+The coefficient vector is
+\[
+    \mathbf f=(2,4,1,3).
+\]
+Let the evaluation point be
+\[
+    u=5.
+\]
+Then
+\[
+\begin{aligned}
+    v=f(5)
+    &=2+4\cdot 5+5^2+3\cdot 5^3\\
+    &=2+20+25+375\\
+    &=422\\
+    &\equiv 34\pmod{97}.
+\end{aligned}
+\]
+Equivalently,
+\[
+    v=\iprod{(2,4,1,3)}{(1,5,25,28)}=34,
+\]
+since $5^3=125\equiv 28\pmod{97}$.
+
+\subsection{Pedersen vector commitment}
+
+Let
+\[
+    \pp=(g_0,g_1,g_2,g_3)
+\]
+be four independent group bases in a cyclic group of order $97$. The commitment is
+\[
+    \mathsf{com}_f=g_0^2g_1^4g_2^1g_3^3.
+\]
+The prover wants to prove that this committed vector evaluates to $34$ at $u=5$.
+
+\subsection{First folding round}
+
+Split the polynomial into low and high halves:
+\[
+    \mathbf f_L=(2,4),
+    \qquad
+    \mathbf f_R=(1,3).
+\]
+Compute
+\[
+    v_L=2+4\cdot 5=22,
+\]
+\[
+    v_R=1+3\cdot 5=16.
+\]
+Then
+\[
+    v_L+u^2v_R=22+25\cdot 16=422\equiv 34=v.
+\]
+
+The prover sends
+\[
+    L_1=g_2^2g_3^4,
+    \qquad
+    R_1=g_0^1g_1^3.
+\]
+Let the verifier challenge be
+\[
+    r_1=7,
+    \qquad
+    r_1^{-1}=14\pmod{97}.
+\]
+Fold the coefficients:
+\[
+    f'_0=r_1f_0+f_2=7\cdot 2+1=15,
+\]
+\[
+    f'_1=r_1f_1+f_3=7\cdot 4+3=31.
+\]
+So
+\[
+    \mathbf f'=(15,31).
+\]
+Fold the bases:
+\[
+    g'_0=g_0^{14}g_2,
+    \qquad
+    g'_1=g_1^{14}g_3.
+\]
+Fold the value:
+\[
+    v'=r_1v_L+v_R=7\cdot22+16=170\equiv 73\pmod{97}.
+\]
+Indeed,
+\[
+    f'(5)=15+31\cdot5=170\equiv 73.
+\]
+
+Now check the commitment update:
+\[
+    \mathsf{com}'=L_1^{7}\mathsf{com}_fR_1^{14}.
+\]
+Expanding:
+\[
+\begin{aligned}
+\mathsf{com}'
+&=(g_2^2g_3^4)^7(g_0^2g_1^4g_2g_3^3)(g_0g_1^3)^{14}\\
+&=g_0^{2+14}g_1^{4+42}g_2^{14+1}g_3^{28+3}\\
+&=g_0^{16}g_1^{46}g_2^{15}g_3^{31}.
+\end{aligned}
+\]
+On the other hand,
+\[
+\begin{aligned}
+(g'_0)^{15}(g'_1)^{31}
+&=(g_0^{14}g_2)^{15}(g_1^{14}g_3)^{31}\\
+&=g_0^{210}g_2^{15}g_1^{434}g_3^{31}\\
+&=g_0^{16}g_1^{46}g_2^{15}g_3^{31}\pmod{97},
+\end{aligned}
+\]
+because $210\equiv16$ and $434\equiv46$ modulo $97$. Thus the folded commitment is correct.
+
+\subsection{Second folding round and final scalar}
+
+The remaining vector has length $2$. Split
+\[
+    \mathbf f'=(15,31)
+\]
+into left scalar $15$ and right scalar $31$. The verifier first checks the value decomposition
+\[
+    v'=15+u\cdot31=15+5\cdot31=170\equiv73.
+\]
+The prover sends
+\[
+    L_2=(g'_1)^{15},
+    \qquad
+    R_2=(g'_0)^{31}.
+\]
+Let the second challenge be
+\[
+    r_2=11,
+    \qquad
+    r_2^{-1}=53\pmod{97}.
+\]
+The final folded scalar is
+\[
+    f''=r_2\cdot15+31=196\equiv2\pmod{97}.
+\]
+The final folded base is
+\[
+    g''=(g'_0)^{53}g'_1.
+\]
+The second commitment update is
+\[
+    \mathsf{com}''=L_2^{r_2}\mathsf{com}'R_2^{r_2^{-1}}.
+\]
+Expanding with $\mathsf{com}'=(g'_0)^{15}(g'_1)^{31}$ gives
+\[
+\begin{aligned}
+\mathsf{com}''
+&=((g'_1)^{15})^{11}(g'_0)^{15}(g'_1)^{31}((g'_0)^{31})^{53}\
+&=(g'_0)^{15+31\cdot 53}(g'_1)^{31+15\cdot 11}.
+\end{aligned}
+\]
+Modulo $97$,
+\[
+    15+31\cdot53=1658\equiv 9,
+    \qquad
+    31+15\cdot11=196\equiv2.
+\]
+On the other hand,
+\[
+\begin{aligned}
+(g'')^{f''}
+&=((g'_0)^{53}g'_1)^2\
+&=(g'_0)^{106}(g'_1)^2\
+&=(g'_0)^9(g'_1)^2,
+\end{aligned}
+\]
+since $106\equiv9\pmod{97}$. Thus
+\[
+    \mathsf{com}''=(g'')^{f''},
+\]
+so the commitment relation survives the second folding round as well.
+
+This is the whole logic of Bulletproofs-style opening: a long vector commitment and inner-product claim are recursively folded into a scalar claim. The proof length grows only logarithmically in the original vector length.
+
+\section{A Complete Plonk Example over \texorpdfstring{$\F_{97}$}{F97}}
+
+This appendix gives a complete Plonk-style proof sketch at the arithmetization and IOP-gadget level. It includes the ProductCheck inside the wiring/permutation argument. It is not yet a production Plonk transcript with all batching, blinding, and Fiat-Shamir challenge ordering spelled out.
+
+\subsection{Field and subgroup}
+
+Work over the prime field
+\[
+    \F_{97}.
+\]
+We use a subgroup of size $12$ because the trace occupies $3|C|+|I|=12$ slots. The element
+\[
+    \omega=6
+\]
+has order $12$ in $\F_{97}^\times$. Hence
+\[
+    \Omega=\set{1,\omega,\omega^2,\ldots,\omega^{11}}
+\]
+with actual values
+\[
+    \Omega=\set{1,6,36,22,35,16,96,91,61,75,62,81}.
+\]
+The vanishing polynomial is
+\[
+    Z_\Omega(X)=X^{12}-1.
+\]
+
+\subsection{Circuit and statement}
+
+Take the three-gate computation
+\[
+    (x_1+x_2)(x_2+w_1).
+\]
+Let
+\[
+    x_1=5,
+    \qquad
+    x_2=6,
+    \qquad
+    w_1=1.
+\]
+Then
+\[
+    (5+6)(6+1)=11\cdot7=77.
+\]
+The computation trace is:
+\[
+\begin{array}{c|ccc|c}
+\toprule
+\text{Gate} & L & R & O & \text{Type}\\
+\midrule
+0 & 5 & 6 & 11 & +\\
+1 & 6 & 1 & 7 & +\\
+2 & 11 & 7 & 77 & \times\\
+\bottomrule
+\end{array}
+\]
+
+\subsection{Trace polynomial}
+
+We place public and witness inputs at negative powers and gate wires at consecutive triples:
+\[
+\begin{array}{c|c|c|c}
+\toprule
+\text{Exponent }i & \omega^i & \text{Meaning} & T(\omega^i)\\
+\midrule
+11 & 81 & x_1 & 5\\
+10 & 62 & x_2 & 6\\
+9 & 75 & w_1 & 1\\
+0 & 1 & \text{gate 0 left} & 5\\
+1 & 6 & \text{gate 0 right} & 6\\
+2 & 36 & \text{gate 0 output} & 11\\
+3 & 22 & \text{gate 1 left} & 6\\
+4 & 35 & \text{gate 1 right} & 1\\
+5 & 16 & \text{gate 1 output} & 7\\
+6 & 96 & \text{gate 2 left} & 11\\
+7 & 91 & \text{gate 2 right} & 7\\
+8 & 61 & \text{gate 2 output} & 77\\
+\bottomrule
+\end{array}
+\]
+
+There is a unique polynomial of degree at most $11$ interpolating these values. It is
+\[
+\begin{aligned}
+T(X)={}&20+85X+22X^2+20X^3+80X^4+10X^5\\
+&+47X^6+38X^7+27X^8+70X^9+6X^{10}+65X^{11}
+\pmod{97}.
+\end{aligned}
+\]
+
+\subsection{Public input check}
+
+The verifier knows $x_1=5$ and $x_2=6$. Define $v(X)$ by
+\[
+    v(\omega^{11})=5,
+    \qquad
+    v(\omega^{10})=6.
+\]
+The interpolating degree-$1$ polynomial is
+\[
+    v(X)=45+51X\pmod{97}.
+\]
+The public input condition is
+\[
+    T(y)-v(y)=0
+    \qquad
+    \forall y\in\Omega_{\mathrm{inp}}=\set{\omega^{11},\omega^{10}}.
+\]
+Indeed,
+\[
+    T(81)=5=v(81),
+    \qquad
+    T(62)=6=v(62).
+\]
+This would be proved by ZeroTest on the two-point input domain.
+
+\subsection{Gate check}
+
+The gate-start domain is
+\[
+    \Omega_{\mathrm{gates}}=\set{\omega^0,\omega^3,\omega^6}=\set{1,22,96}.
+\]
+Define a selector polynomial $S$ by
+\[
+    S(1)=1,
+    \qquad
+    S(22)=1,
+    \qquad
+    S(96)=0.
+\]
+The degree-$2$ interpolant is
+\[
+    S(X)=68+49X+78X^2\pmod{97}.
+\]
+The gate polynomial is
+\[
+    G_{\mathrm{gate}}(X)
+    =S(X)(T(X)+T(\omega X))+(1-S(X))T(X)T(\omega X)-T(\omega^2X).
+\]
+We need
+\[
+    G_{\mathrm{gate}}(y)=0
+    \qquad\forall y\in\Omega_{\mathrm{gates}}.
+\]
+Concretely:
+\[
+\begin{array}{c|c}
+\toprule
+\text{Gate-start }y & \text{Check}\\
+\midrule
+1 & 5+6-11=0\\
+22=\omega^3 & 6+1-7=0\\
+96=\omega^6 & 11\cdot7-77=0\\
+\bottomrule
+\end{array}
+\]
+This condition is also proved by a ZeroTest, now over $\Omega_{\mathrm{gates}}$.
+
+\subsection{Wiring as a prescribed permutation}
+
+The copy constraints are:
+\[
+T(\omega^{10})=T(\omega^1)=T(\omega^3)=6,
+\]
+\[
+T(\omega^{11})=T(\omega^0)=5,
+\]
+\[
+T(\omega^2)=T(\omega^6)=11,
+\]
+\[
+T(\omega^9)=T(\omega^4)=1.
+\]
+The permutation $W:\Omega\to\Omega$ acts by cycles
+\[
+    (\omega^{10}\ \omega^1\ \omega^3)
+    (\omega^{11}\ \omega^0)
+    (\omega^2\ \omega^6)
+    (\omega^9\ \omega^4),
+\]
+with $\omega^5,\omega^7,\omega^8$ fixed. The logical wiring condition is
+\[
+    T(y)=T(W(y))
+    \qquad\forall y\in\Omega.
+\]
+
+Interpolating $W$ on $\Omega$ gives one polynomial representative
+\[
+\begin{aligned}
+W(X)={}&53X+38X^2+50X^3+8X^4+81X^5+43X^6\\
+&+80X^7+94X^8+44X^9+21X^{10}+54X^{11}
+\pmod{97}.
+\end{aligned}
+\]
+A direct check of $T(X)-T(W(X))$ would involve a high-degree composition: the polynomial $W(X)$ is merely an interpolation of the wiring table, not a cheap function to compose into $T$. Plonk therefore uses a prescribed permutation ProductCheck.
+
+\subsection{ProductCheck inside the wiring argument}
+
+The prescribed permutation check samples random challenges $\rho,\sigma\in\F_{97}$ and proves
+\[
+    \prod_{a\in\Omega}
+    \frac{\rho-\sigma W(a)-T(a)}{\rho-\sigma a-T(a)}=1.
+\]
+For this concrete example choose
+\[
+    \rho=17,
+    \qquad
+    \sigma=3.
+\]
+Define
+\[
+    F(a)=\rho-\sigma W(a)-T(a),
+    \qquad
+    G(a)=\rho-\sigma a-T(a),
+\]
+and
+\[
+    h(a)=\frac{F(a)}{G(a)}.
+\]
+The following table lists the domain order and the running product values
+\[
+    t(\omega^s)=\prod_{i=0}^{s}h(\omega^i).
+\]
+
+\begin{center}
+\small
+\begin{tabular}{c|c|c|c|c|c}
+\toprule
+$i$ & $a=\omega^i$ & $T(a)$ & $W(a)$ & $h(a)$ & $t(a)$\\
+\midrule
+0 & 1 & 5 & 81 & 39 & 39\\
+1 & 6 & 6 & 22 & 91 & 57\\
+2 & 36 & 11 & 96 & 37 & 72\\
+3 & 22 & 6 & 62 & 12 & 88\\
+4 & 35 & 1 & 75 & 83 & 29\\
+5 & 16 & 7 & 16 & 1 & 29\\
+6 & 96 & 11 & 36 & 21 & 27\\
+7 & 91 & 7 & 91 & 1 & 27\\
+8 & 61 & 77 & 61 & 1 & 27\\
+9 & 75 & 1 & 35 & 90 & 5\\
+10 & 62 & 6 & 6 & 66 & 39\\
+11 & 81 & 5 & 1 & 5 & 1\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The final value is
+\[
+    t(\omega^{11})=1,
+\]
+so the product identity holds. Notice that the entries with $h(a)=1$ correspond to fixed points of the wiring permutation. The interpolated running product polynomial is
+\[
+\begin{aligned}
+t(X)={}&69+25X+27X^2+18X^3+79X^4+64X^5\\
+&+83X^6+17X^7+13X^8+88X^9+53X^{10}+85X^{11}
+\pmod{97}.
+\end{aligned}
+\]
+
+Now the prover interpolates the running product polynomial $t(X)$ from the values above. The recurrence to be checked is the rational ProductCheck recurrence:
+\[
+    t(\omega X)G(\omega X)=t(X)F(\omega X)
+    \qquad\forall X\in\Omega.
+\]
+Equivalently, define
+\[
+    R(X)=t(\omega X)G(\omega X)-t(X)F(\omega X).
+\]
+Then
+\[
+    R(X)=0\qquad\forall X\in\Omega,
+\]
+so
+\[
+    q(X)=\frac{R(X)}{X^{12}-1}
+\]
+is a polynomial. A verifier checks this quotient relation at one random point $z$.
+
+For example, take
+\[
+    z=2.
+\]
+The interpolated polynomials give
+\[
+    R(2)=25,
+    \qquad
+    z^{12}-1=2^{12}-1\equiv21\pmod{97}.
+\]
+Since
+\[
+    21^{-1}\equiv 37\pmod{97},
+\]
+we get
+\[
+    q(2)=R(2)(z^{12}-1)^{-1}=25\cdot37\equiv52\pmod{97}.
+\]
+Thus the verifier's random-point check is
+\[
+    R(2)
+    \stackrel{?}{=}
+    q(2)(2^{12}-1),
+\]
+and indeed
+\[
+    52\cdot21=1092\equiv25\pmod{97}.
+\]
+This is the ProductCheck embedded inside the Plonk wiring proof. The table proves the randomized pair-multiset equality. By the prescribed permutation lemma, this implies $T(a)=T(W(a))$ for every wire slot $a\in\Omega$, except with the usual random-challenge soundness error.
+
+\subsection{Output check}
+
+In this toy trace, the final output slot is
+\[
+    T(\omega^8)=77.
+\]
+If the statement is ``the circuit output is $77$,'' the verifier asks for a direct opening proving
+\[
+    T(\omega^8)=77.
+\]
+If the proof system uses a zero-output convention, one appends a final linear gate computing
+\[
+    T(\omega^8)-77
+\]
+and checks that the new final output is zero.
+
+\subsection{The final proof obligations}
+
+The complete Plonk proof for this toy circuit consists of the following obligations:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Trace commitment:} the prover commits to $T$.
+    \item \textbf{Public inputs:} $T-v$ vanishes on $\Omega_{\mathrm{inp}}$.
+    \item \textbf{Gate semantics:} $G_{\mathrm{gate}}$ vanishes on $\Omega_{\mathrm{gates}}$.
+    \item \textbf{Wiring:} the prescribed permutation relation is proved by the rational ProductCheck above.
+    \item \textbf{Output:} the final output equals $77$ or equals zero after a final adjustment gate.
+\end{enumerate}
+
+Each obligation is a low-degree polynomial identity checked at one or a few random points. A PCS such as KZG or Bulletproofs turns these oracle checks into a succinct argument \cite{KateZaveruchaGoldberg2010,Bulletproofs2018}. This is the complete architecture of Plonk in miniature.
+
+
+\section{A Color-Coded R1CS-to-QAP Example}
+\label{app:r1cs-qap-example}
+
+This appendix gives a complete worked example of the transformation
+\[
+    \text{algebraic circuit}\longrightarrow \text{R1CS}\longrightarrow \text{QAP}.
+\]
+The example is intentionally color coded. The colors are not decoration: they are a reading device for tracking how one object is represented in the next layer. This is the arithmetization route underlying QAP-based systems such as GGPR, Pinocchio, and Groth16~\cite{GennaroGentryParnoRaykova2013,ParnoHowellGentryRaykova2013,Groth2016}. We stop at the QAP divisibility relation and do not construct a Groth16 proof.
+
+\subsection{Color legend: wires, rows, and basis polynomials}
+
+There are two independent color systems.
+
+\begin{tcolorbox}
+\textbf{How to read the colors.}
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Wire colors track columns.} The same wire has the same color in the algebraic circuit, in the assignment vector, in the R1CS matrix column, and in the QAP column polynomial.
+    \item \textbf{Constraint colors track rows.} The same constraint color is used for the algebraic constraint $\mathcal C_i$, the R1CS row $i$, the constraint point $r_i$, and the Lagrange basis polynomial $L_i(X)$.
+    \item In the QAP formula
+    \[
+        A_j(X)=\sum_{i=1}^{m} A_{i,j} L_i(X),
+    \]
+    the column index $j$ is the wire being encoded, while the basis polynomial $L_i(X)$ remembers which R1CS row supplied the coefficient.
+\end{itemize}
+\end{tcolorbox}
+
+The wire-color legend is
+\[
+\begin{array}{c|ccccccc}
+\text{wire} & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\text{role} & \text{constant} & \text{input} & \text{input} & \text{witness} & \text{intermediate} & \text{intermediate} & \text{output}
+\end{array}
+\]
+The constraint-color legend is
+\[
+    \rowone{\mathcal C_1\leftrightarrow r_1=1\leftrightarrow L_1(X)},
+    \qquad
+    \rowtwo{\mathcal C_2\leftrightarrow r_2=2\leftrightarrow L_2(X)},
+    \qquad
+    \rowthree{\mathcal C_3\leftrightarrow r_3=3\leftrightarrow L_3(X)}.
+\]
+Thus a term such as $\rowtwo{L_2(X)}$ inside $A_{\xtwo{x_2}}(X)$ should be read as: ``the $\xtwo{x_2}$ column of the $A$ matrix has a nonzero coefficient in row $\rowtwo{\mathcal C_2}$.''
+
+\subsection{The algebraic circuit}
+
+Work over a field $\F$ of characteristic not equal to $2$ or $3$; for concrete numerical checks, one may read all values in $\F_{97}$. Consider the circuit
+\[
+    \ywire{y}=(\xone{x_1}+\xtwo{x_2})(\xtwo{x_2}+\wone{w_1}).
+\]
+Flatten the computation by introducing two intermediate wires:
+\[
+    \rowone{\mathcal C_1:}\qquad
+    (\xone{x_1}+\xtwo{x_2})\cdot \constwire{1}=\vone{v_1},
+\]
+\[
+    \rowtwo{\mathcal C_2:}\qquad
+    (\xtwo{x_2}+\wone{w_1})\cdot \constwire{1}=\vtwo{v_2},
+\]
+\[
+    \rowthree{\mathcal C_3:}\qquad
+    \vone{v_1}\cdot\vtwo{v_2}=\ywire{y}.
+\]
+These three equations already have the R1CS shape
+\[
+    (\text{linear form})\cdot(\text{linear form})=(\text{linear form}).
+\]
+The concrete assignment used below is
+\[
+    \xone{x_1}=5,
+    \qquad
+    \xtwo{x_2}=6,
+    \qquad
+    \wone{w_1}=1,
+\]
+so that
+\[
+    \vone{v_1}=11,
+    \qquad
+    \vtwo{v_2}=7,
+    \qquad
+    \ywire{y}=77.
+\]
+The full assignment vector is
+\[
+    z=(\constwire{1},\xone{x_1},\xtwo{x_2},\wone{w_1},\vone{v_1},\vtwo{v_2},\ywire{y})
+      =(1,5,6,1,11,7,77).
+\]
+
+\subsection{R1CS matrices with row and column labels}
+
+Using the column order
+\[
+    (\constwire{1},\xone{x_1},\xtwo{x_2},\wone{w_1},\vone{v_1},\vtwo{v_2},\ywire{y}),
+\]
+the $A$ matrix encodes the left linear form in each constraint:
+\[
+\renewcommand{\arraystretch}{1.15}
+\begin{array}{c|ccccccc}
+A & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\rowone{\mathcal C_1} & 0 & \rowone{1} & \rowone{1} & 0 & 0 & 0 & 0 \\
+\rowtwo{\mathcal C_2} & 0 & 0 & \rowtwo{1} & \rowtwo{1} & 0 & 0 & 0 \\
+\rowthree{\mathcal C_3} & 0 & 0 & 0 & 0 & \rowthree{1} & 0 & 0
+\end{array}
+\]
+Read the entry $A_{2,w_1}=\rowtwo{1}$ as follows: it is in the $\wone{w_1}$ column, so it is the coefficient of $\wone{w_1}$; it is in the $\rowtwo{\mathcal C_2}$ row, so it belongs to the second constraint.
+
+The $B$ matrix encodes the right linear form in each constraint:
+\[
+\renewcommand{\arraystretch}{1.15}
+\begin{array}{c|ccccccc}
+B & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\rowone{\mathcal C_1} & \rowone{1} & 0 & 0 & 0 & 0 & 0 & 0 \\
+\rowtwo{\mathcal C_2} & \rowtwo{1} & 0 & 0 & 0 & 0 & 0 & 0 \\
+\rowthree{\mathcal C_3} & 0 & 0 & 0 & 0 & 0 & \rowthree{1} & 0
+\end{array}
+\]
+The first two constraints multiply by the constant wire $\constwire{1}$; the third constraint multiplies by $\vtwo{v_2}$.
+
+The $C$ matrix encodes the output linear form in each constraint:
+\[
+\renewcommand{\arraystretch}{1.15}
+\begin{array}{c|ccccccc}
+C & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\rowone{\mathcal C_1} & 0 & 0 & 0 & 0 & \rowone{1} & 0 & 0 \\
+\rowtwo{\mathcal C_2} & 0 & 0 & 0 & 0 & 0 & \rowtwo{1} & 0 \\
+\rowthree{\mathcal C_3} & 0 & 0 & 0 & 0 & 0 & 0 & \rowthree{1}
+\end{array}
+\]
+The row colors show which equation a coefficient belongs to; the column colors show which wire the coefficient multiplies.
+
+For the assignment $z=(1,5,6,1,11,7,77)$, the three rows check as follows:
+\[
+    \rowone{(A_1\cdot z)(B_1\cdot z)}=(5+6)\cdot1=11=\rowone{C_1\cdot z},
+\]
+\[
+    \rowtwo{(A_2\cdot z)(B_2\cdot z)}=(6+1)\cdot1=7=\rowtwo{C_2\cdot z},
+\]
+\[
+    \rowthree{(A_3\cdot z)(B_3\cdot z)}=11\cdot7=77=\rowthree{C_3\cdot z}.
+\]
+Thus this assignment satisfies the R1CS.
+
+\subsection{From R1CS entries to QAP basis terms}
+
+Choose the constraint domain
+\[
+    H=\{\rowone{r_1=1},\rowtwo{r_2=2},\rowthree{r_3=3}\}.
+\]
+The vanishing polynomial is
+\[
+    Z_H(X)=(X-1)(X-2)(X-3)=X^3-6X^2+11X-6.
+\]
+The Lagrange basis polynomials for $H$ are
+\[
+    \rowone{L_1(X)}=\rowone{\frac{(X-2)(X-3)}{(1-2)(1-3)}}=\rowone{\frac{(X-2)(X-3)}{2}},
+\]
+\[
+    \rowtwo{L_2(X)}=\rowtwo{\frac{(X-1)(X-3)}{(2-1)(2-3)}}=\rowtwo{-(X-1)(X-3)},
+\]
+\[
+    \rowthree{L_3(X)}=\rowthree{\frac{(X-1)(X-2)}{(3-1)(3-2)}}=\rowthree{\frac{(X-1)(X-2)}{2}}.
+\]
+They satisfy $L_i(r_j)=1$ if $i=j$ and $0$ otherwise.
+
+The column-interpolation rule is
+\[
+\boxed{
+    A_j(X)=\sum_{i=1}^{3} A_{i,j}\,L_i(X),
+    \qquad
+    B_j(X)=\sum_{i=1}^{3} B_{i,j}\,L_i(X),
+    \qquad
+    C_j(X)=\sum_{i=1}^{3} C_{i,j}\,L_i(X).
+}
+\]
+Hence an R1CS number becomes a QAP coefficient: the entry $A_{i,j}$ becomes the coefficient of the row-colored basis polynomial $L_i(X)$ inside the wire-colored column polynomial $A_j(X)$.
+
+For example, in the $A$ matrix the nonzero entries become:
+\[
+\begin{array}{c|c|c}
+\text{R1CS entry} & \text{source} & \text{QAP contribution} \\
+\hline
+A_{1,x_1}=\rowone{1} & \xone{x_1}\text{ appears in }\rowone{\mathcal C_1} & \rowone{1\cdot L_1(X)} \\
+A_{1,x_2}=\rowone{1} & \xtwo{x_2}\text{ appears in }\rowone{\mathcal C_1} & \rowone{1\cdot L_1(X)} \\
+A_{2,x_2}=\rowtwo{1} & \xtwo{x_2}\text{ appears in }\rowtwo{\mathcal C_2} & \rowtwo{1\cdot L_2(X)} \\
+A_{2,w_1}=\rowtwo{1} & \wone{w_1}\text{ appears in }\rowtwo{\mathcal C_2} & \rowtwo{1\cdot L_2(X)} \\
+A_{3,v_1}=\rowthree{1} & \vone{v_1}\text{ appears in }\rowthree{\mathcal C_3} & \rowthree{1\cdot L_3(X)}
+\end{array}
+\]
+This table is the key bridge. It shows exactly how a colored number in the R1CS matrix turns into a colored basis term in the QAP.
+
+\subsection{Constructing the QAP column polynomials}
+
+Now collect all contributions for each wire column.
+
+For the $A$ matrix:
+\[
+\begin{array}{c|c}
+\text{wire column} & A_j(X) \\
+\hline
+\xone{x_1} & \rowone{L_1(X)} \\
+\xtwo{x_2} & \rowone{L_1(X)}+\rowtwo{L_2(X)} \\
+\wone{w_1} & \rowtwo{L_2(X)} \\
+\vone{v_1} & \rowthree{L_3(X)}
+\end{array}
+\]
+All other $A_j(X)$ are zero. The term $\rowtwo{L_2(X)}$ inside $A_{\xtwo{x_2}}(X)$ is precisely the QAP image of the R1CS entry $A_{2,x_2}=1$.
+
+For the $B$ matrix:
+\[
+\begin{array}{c|c}
+\text{wire column} & B_j(X) \\
+\hline
+\constwire{1} & \rowone{L_1(X)}+\rowtwo{L_2(X)} \\
+\vtwo{v_2} & \rowthree{L_3(X)}
+\end{array}
+\]
+The constant wire appears in the first two $B$-linear forms, while $\vtwo{v_2}$ appears in the third.
+
+For the $C$ matrix:
+\[
+\begin{array}{c|c}
+\text{wire column} & C_j(X) \\
+\hline
+\vone{v_1} & \rowone{L_1(X)} \\
+\vtwo{v_2} & \rowtwo{L_2(X)} \\
+\ywire{y} & \rowthree{L_3(X)}
+\end{array}
+\]
+For instance, $C_{\ywire{y}}(X)=\rowthree{L_3(X)}$ says that $\ywire{y}$ is the output wire of constraint $\rowthree{\mathcal C_3}$.
+
+\subsection{Combining columns with the assignment}
+
+The assignment values turn the column polynomials into three aggregate polynomials:
+\[
+    A_z(X)=\sum_j z_jA_j(X),
+    \qquad
+    B_z(X)=\sum_j z_jB_j(X),
+    \qquad
+    C_z(X)=\sum_j z_jC_j(X).
+\]
+Using the colored columns above,
+\[
+\begin{aligned}
+A_z(X)
+&=\xone{5}\,\rowone{L_1(X)}
+ +\xtwo{6}\bigl(\rowone{L_1(X)}+\rowtwo{L_2(X)}\bigr)
+ +\wone{1}\,\rowtwo{L_2(X)}
+ +\vone{11}\,\rowthree{L_3(X)}\\
+&=\rowone{11L_1(X)}+\rowtwo{7L_2(X)}+\rowthree{11L_3(X)}\\
+&=4X^2-16X+23,
+\end{aligned}
+\]
+\[
+\begin{aligned}
+B_z(X)
+&=\constwire{1}\bigl(\rowone{L_1(X)}+\rowtwo{L_2(X)}\bigr)
+ +\vtwo{7}\,\rowthree{L_3(X)}\\
+&=\rowone{L_1(X)}+\rowtwo{L_2(X)}+\rowthree{7L_3(X)}\\
+&=3X^2-9X+7,
+\end{aligned}
+\]
+\[
+\begin{aligned}
+C_z(X)
+&=\vone{11}\,\rowone{L_1(X)}+\vtwo{7}\,\rowtwo{L_2(X)}+\ywire{77}\,\rowthree{L_3(X)}\\
+&=\rowone{11L_1(X)}+\rowtwo{7L_2(X)}+\rowthree{77L_3(X)}\\
+&=37X^2-115X+89.
+\end{aligned}
+\]
+The color of each $L_i$ term tells which R1CS row generated that contribution. Evaluating at the row-colored points reproduces the row values:
+\[
+\begin{array}{c|ccc}
+X & A_z(X) & B_z(X) & C_z(X) \\
+\hline
+\rowone{1} & \rowone{11} & \rowone{1} & \rowone{11} \\
+\rowtwo{2} & \rowtwo{7} & \rowtwo{1} & \rowtwo{7} \\
+\rowthree{3} & \rowthree{11} & \rowthree{7} & \rowthree{77}
+\end{array}
+\]
+Thus at each constraint point,
+\[
+    A_z(r_i)B_z(r_i)=C_z(r_i).
+\]
+
+\subsection{Checking the QAP divisibility condition}
+
+Define the QAP numerator
+\[
+    P_z(X)=A_z(X)B_z(X)-C_z(X).
+\]
+Using the explicit polynomials above,
+\[
+\begin{aligned}
+P_z(X)
+&=(4X^2-16X+23)(3X^2-9X+7)-(37X^2-115X+89)\\
+&=12X^4-84X^3+204X^2-204X+72.
+\end{aligned}
+\]
+Direct evaluation gives
+\[
+    P_z(\rowone{1})=P_z(\rowtwo{2})=P_z(\rowthree{3})=0.
+\]
+Therefore $P_z$ is divisible by
+\[
+    Z_H(X)=X^3-6X^2+11X-6.
+\]
+Indeed,
+\[
+    P_z(X)=(12X-12)Z_H(X),
+\]
+so the quotient polynomial is
+\[
+    h_z(X)=12X-12.
+\]
+The final QAP relation for this example is
+\[
+\boxed{
+    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+}
+\]
+The cross-representation trace is now visible:
+\[
+\begin{array}{c}
+\text{colored algebraic constraint }\mathcal C_i\\
+\Updownarrow\\
+\text{colored R1CS row }i\\
+\Updownarrow\\
+\text{colored QAP basis polynomial }L_i(X).
+\end{array}
+\]
+This is exactly the algebraic statement that the next Groth16 layer will commit to and check using pairings.
+
+\end{document}
