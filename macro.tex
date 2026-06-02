@@ -117,6 +117,19 @@
   \end{tabular}%
 }
 
+%  Exercise box (orange)
+%  Usage: \begin{exercisebox} ... \end{exercisebox}
+%  The bold "Exercise." label is added automatically.
+\newenvironment{exercisebox}{%
+  \begin{tcolorbox}[
+    colback=orange!5!white, colframe=orange!60!black,
+    boxrule=0.6pt, arc=2mm
+  ]%
+  \textbf{Exercise.}\;%
+}{%
+  \end{tcolorbox}%
+}
+
 %  Attack / warning note box
 \newenvironment{attacknote}{%
   \begin{tcolorbox}[

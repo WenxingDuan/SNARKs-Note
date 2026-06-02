@@ -53,7 +53,11 @@ Take \emph{perfect secrecy} as a concrete illustration. A cipher $\mathsf{Enc}$ 
 \]
 for every message $m$ and every ciphertext $c$: observing the ciphertext does not shift your beliefs about the plaintext at all. The one-time pad is the canonical example --- the ciphertext is uniformly distributed regardless of the message, so it leaks nothing.
 
-There is another way to see why this means no information leaks. Ask: could the adversary have produced the ciphertext themselves, without interacting with the encryption scheme at all? For the one-time pad, the answer is yes --- just sample a uniformly random string. The adversary can simulate the ciphertext on their own, so seeing the real one teaches them nothing new. This is the \emph{simulation paradigm}: if you can reproduce the output by yourself, the real output is useless to you. Phrased this way, the idea generalises far beyond perfect secrecy --- replacing identical distributions with computationally indistinguishable ones gives CPA security, and the same simulation-based argument underlies zero knowledge, MPC, and much of modern cryptography.
+There is another way to see why this means no information leaks. Ask: could the adversary have produced the ciphertext themselves, without interacting with the encryption scheme at all? For the one-time pad, the answer is yes --- just sample a uniformly random string. The adversary can simulate the ciphertext on their own, so seeing the real one teaches them nothing new. This is the \emph{simulation paradigm}: if you can reproduce the output by yourself, the real output is useless to you.
+
+\begin{exercisebox}
+  Replace ``identical distributions'' with ``computationally indistinguishable distributions'' in the argument above. Write down the resulting security game between an adversary and a challenger, and verify that it captures CPA security for symmetric encryption.
+\end{exercisebox}
 
 \begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
   A proof system is \textbf{zero knowledge} if there exists an efficient \emph{simulator} that, \emph{without knowing the secret witness}, can produce transcripts that are indistinguishable from real interactions with the honest prover.
@@ -109,13 +113,12 @@ While Bob waits at the entrance, Alice enters the cave and walks down one of the
 This is unlike the DLOG protocols below, where the witness $w$ appears \emph{linearly} in the response and can be recovered by subtraction.
 
 %% ============================================================
-\section{Exercise: The Apple Test}
+\subsection{Exercise: The Apple Test}
 %% ============================================================
 
-\begin{tcolorbox}[colback=orange!5!white,colframe=orange!60!black,boxrule=0.6pt,arc=2mm]
-  \textbf{Exercise.}
+\begin{exercisebox}
   Alice has two apples: one red, one green. Bob is red-green colorblind and cannot visually distinguish them. Alice claims she \emph{can} tell them apart. Describe a protocol by which Alice can convince Bob she has the ability to distinguish the apples, without revealing to Bob which apple is red and which is green.
-\end{tcolorbox}
+\end{exercisebox}
 
 %% ============================================================
 \section{Sigma Protocols for Discrete Logarithm}
@@ -266,6 +269,22 @@ We combine the two verification checks from Attempts 2 and 3, selected by a rand
 
 \textbf{Honest-verifier ZK}: for each fixed $c$, a simulator picks $z \leftarrow \Zq$, sets $a = g^z$ (if $c=0$) or $a = g^z \cdot h^{-1}$ (if $c=1$), and outputs $(a,c,z)$. Both distributions match the real transcript.
 
+\begin{tcolorbox}[enhanced, colback=teal!5!white, colframe=teal!50!black, boxrule=0.6pt, arc=2mm, left=5pt, right=5pt, top=4pt, bottom=4pt]
+Why is the simulator allowed to choose $a$ \emph{after} seeing $c$, while a real prover must commit to $a$ first?
+
+\medskip
+\textit{Reason 1 --- soundness.} If a simulator with no extra power could already fake transcripts, then any cheating prover could run that same strategy and break soundness. The simulator must therefore be given an advantage that a real prover does not have.
+
+\medskip
+\textit{Reason 2 --- who is the adversary.} Zero knowledge asks whether the \emph{verifier} can reproduce the transcript on their own. The verifier is the party trying to learn the witness, so it plays the role of the adversary in the simulation. An honest verifier samples $c$ themselves and therefore already knows $c$ before the transcript is complete. The simulator models exactly this honest verifier, and so is entitled to know $c$ in advance.
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[enhanced, colback=teal!5!white, colframe=teal!50!black, boxrule=0.6pt, arc=2mm, left=5pt, right=5pt, top=4pt, bottom=4pt]
+This style of argument is called \emph{black-box simulation}: the simulator is given oracle access to the verifier. In the honest-verifier setting this is clean --- the verifier's randomness is fixed and used honestly, so the challenge is known to the simulator ahead of time. If the verifier is malicious, it may use its randomness arbitrarily, and the simulator can no longer rely on knowing $c$ in advance. Handling a malicious verifier requires a more powerful technique called \emph{rewinding}, which is beyond our scope here.
+\end{tcolorbox}
+
 \textbf{Special soundness}: given two accepting transcripts $(a, 0, z_0)$ and $(a, 1, z_1)$ with the same $a$, we have $z_0 = r$ and $z_1 = r + w$. Subtracting:
 \[
   w = z_1 - z_0 \pmod{q}.
@@ -323,9 +342,9 @@ Division is well-defined because $q$ is prime and $c \neq c'$ implies $c - c'$ i
 
 \medskip
 
-\begin{tcolorbox}[colback=orange!5!white,colframe=orange!60!black,boxrule=0.6pt,arc=2mm]
-\textbf{Exercise.} Formally prove all three properties for the Schnorr protocol. For honest-verifier ZK, write down the explicit simulator and show the simulated and real distributions over $(a, c, z)$ are identical.
-\end{tcolorbox}
+\begin{exercisebox}
+  Formally prove all three properties for the Schnorr protocol. For honest-verifier ZK, write down the explicit simulator and show the simulated and real distributions over $(a, c, z)$ are identical.
+\end{exercisebox}
 
 %% ============================================================
 \section{A Fundamental Tension: Soundness vs.\ Zero Knowledge}
