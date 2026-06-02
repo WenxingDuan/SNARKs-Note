@@ -1,0 +1,382 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{makecell}
+\usepackage{multirow}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\setlength{\headheight}{14pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Zero Knowledge: An Introduction}
+\rhead{\thepage}
+
+\input{macro}
+
+\title{\textbf{Zero Knowledge: An Introduction}}
+\author{A collaborative learning note}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\tableofcontents
+\newpage
+
+%% ============================================================
+\section{What Is Zero Knowledge?}
+%% ============================================================
+
+In an ordinary proof you convince someone by showing them the evidence directly --- to prove you are over 18, you hand over your ID. The verifier learns your exact date of birth, your name, your address. The proof works, but it reveals far more than necessary.
+
+Zero-knowledge proofs ask: can we do better? Can a prover convince a verifier that a statement is true while revealing \emph{nothing at all} beyond the bare truth of the claim?
+
+The answer, perhaps surprisingly, is yes.
+
+\subsection*{The simulator test}
+
+Take \emph{perfect secrecy} as a concrete illustration. A cipher $\mathsf{Enc}$ is perfectly secret if
+\[
+  \Pr[m \mid c] = \Pr[m]
+\]
+for every message $m$ and every ciphertext $c$: observing the ciphertext does not shift your beliefs about the plaintext at all. The one-time pad is the canonical example --- the ciphertext is uniformly distributed regardless of the message, so it leaks nothing.
+
+There is another way to see why this means no information leaks. Ask: could the adversary have produced the ciphertext themselves, without interacting with the encryption scheme at all? For the one-time pad, the answer is yes --- just sample a uniformly random string. The adversary can simulate the ciphertext on their own, so seeing the real one teaches them nothing new. This is the \emph{simulation paradigm}: if you can reproduce the output by yourself, the real output is useless to you. Phrased this way, the idea generalises far beyond perfect secrecy --- replacing identical distributions with computationally indistinguishable ones gives CPA security, and the same simulation-based argument underlies zero knowledge, MPC, and much of modern cryptography.
+
+\begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
+  A proof system is \textbf{zero knowledge} if there exists an efficient \emph{simulator} that, \emph{without knowing the secret witness}, can produce transcripts that are indistinguishable from real interactions with the honest prover.
+\end{tcolorbox}
+
+The logic is elegant: if the verifier could have generated the same conversation by themselves (by running the simulator), then seeing the real conversation taught them nothing new. Whatever information seems to be in the proof was already accessible to the verifier without the prover's help.
+
+We will develop this intuition through a series of concrete examples.
+
+%% ============================================================
+\section{The Ali Baba's Cave}
+%% ============================================================
+
+\subsection{Setup}
+
+Imagine a circular cave with a single public entrance. Inside, the path splits into two branches, $A$ and $B$, that meet at a locked door deep in the rock. The door can only be opened with a secret magic word. Alice knows the magic word; Bob does not.
+
+Alice wants to prove to Bob that she knows the magic word --- without uttering it.
+
+\subsection{Protocol}
+
+While Bob waits at the entrance, Alice enters the cave and walks down one of the two branches, choosing privately which one. Bob then shouts a challenge from the entrance, naming one of the two sides. Alice must emerge from that side: if she chose the correct branch she simply walks out; otherwise she must pass through the door using the magic word.
+
+\medskip
+\noindent
+\begin{minipage}[t]{0.60\linewidth}
+\begin{protocolbox}
+\begin{sigmatab}{$P(\mathit{Cave};\ \mathit{secret})$}{$V(\mathit{Cave})$}
+  \makecell[l]{Alice enters the cave and \\ chooses side $A$ or $B$ \\ (choice is private)} &
+  \send{} & \\[3pt]
+  & \recv{c} & $c \leftarrow \{A,\, B\}$ \\[3pt]
+  \makecell[l]{Alice exits from side $z$ \\ (uses magic word if needed)} &
+  \send{z} &
+  \makecell[l]{Output 1 if $c = z$, \\ else output 0} \\
+\end{sigmatab}
+\end{protocolbox}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.36\linewidth}
+\vspace{0.5em}
+\propbox{\propyes}{\propyes}{\propno}
+\end{minipage}
+
+\medskip
+
+\subsection{Analysis}
+
+\textbf{Completeness.} If Alice knows the magic word she can always exit from whichever side Bob names, regardless of which side she entered. The verifier always outputs 1.
+
+\textbf{Honest-verifier zero knowledge.} The observable transcript is just $(c, z)$. An honest Alice always has $z = c$, so the transcript contains only the challenge value --- which the verifier chose themselves. A simulator that picks $c \leftarrow \{A, B\}$ at random and sets $z = c$ produces the same distribution without knowing any magic word.
+
+\textbf{Special soundness fails.} Special soundness requires: given two accepting transcripts sharing the \emph{same commitment} but with \emph{different} challenges, an efficient extractor can recover the witness. Here the ``commitment'' is Alice's choice of branch, which is private and never observed by Bob. Even if we could somehow observe it, the transcripts only confirm that Alice exited the correct side --- they carry no algebraic trace of the magic word. No extractor can recover an opaque password from a pair of exit choices.
+
+This is unlike the DLOG protocols below, where the witness $w$ appears \emph{linearly} in the response and can be recovered by subtraction.
+
+%% ============================================================
+\section{Exercise: The Apple Test}
+%% ============================================================
+
+\begin{tcolorbox}[colback=orange!5!white,colframe=orange!60!black,boxrule=0.6pt,arc=2mm]
+  \textbf{Exercise.}
+  Alice has two apples: one red, one green. Bob is red-green colorblind and cannot visually distinguish them. Alice claims she \emph{can} tell them apart. Describe a protocol by which Alice can convince Bob she has the ability to distinguish the apples, without revealing to Bob which apple is red and which is green.
+\end{tcolorbox}
+
+%% ============================================================
+\section{Sigma Protocols for Discrete Logarithm}
+%% ============================================================
+
+We now build a mathematically rigorous protocol for a number-theoretic statement, arriving at the famous \emph{Schnorr identification scheme}. Each attempt below fixes exactly one flaw of the previous one; the sequence of failures makes clear why every design choice in the final protocol is necessary.
+
+\subsection{Setup}
+
+Let $(\G, g, q)$ be a cyclic group of prime order $q$ with generator $g$. Write $\Z_q = \Z/q\Z$. The \emph{discrete logarithm (DLOG) relation} is
+\[
+  \relation = \bigl\{\,(h,\,w) \mid h = g^w\,\bigr\}.
+\]
+The prover $P$ holds a public element $h \in \G$ and a secret witness $w \in \Z_q$ with $h = g^w$. The verifier $V$ holds only $h$.
+
+The goal: $P$ convinces $V$ that they know $w$ without revealing anything about $w$ itself.
+
+%% -----------------------------------------------------------
+\subsection{First Attempt: Reveal the Witness Directly}
+%% -----------------------------------------------------------
+
+The most direct approach: just send $w$.
+
+\medskip
+\noindent
+\begin{minipage}[t]{0.60\linewidth}
+\begin{protocolbox}
+\begin{sigmatab}{$P(h;\, w)$}{$V(h)$}
+  & \send{w} & Output 1 if $h = g^w$ \\
+\end{sigmatab}
+\end{protocolbox}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.36\linewidth}
+\vspace{0.5em}
+\propbox{\propyes}{\propno}{\propyes}
+\end{minipage}
+
+\medskip
+
+\textbf{Completeness} holds: the verifier checks $h \stackrel{?}{=} g^w$, true by assumption.
+
+\textbf{Special soundness} holds trivially: the response $w$ is itself the witness.
+
+\textbf{Honest-verifier ZK fails}: $w$ is sent in the clear. The verifier directly learns the discrete logarithm.
+
+%% -----------------------------------------------------------
+\subsection{Second Attempt: Blind the Response with a Nonce}
+%% -----------------------------------------------------------
+
+To hide $w$, the prover randomises the response with a fresh nonce $r$: commit to $g^r$ and then send $r$ as the response.
+
+\medskip
+\noindent
+\begin{minipage}[t]{0.60\linewidth}
+\begin{protocolbox}
+\begin{sigmatab}{$P(h;\, w)$}{$V(h)$}
+  \makecell[l]{$r \leftarrow \Zq$ \\ $a \deq g^r$} & \send{a} & \\[2pt]
+  $z \deq r$ & \send{z} & Output 1 if $g^z = a$ \\
+\end{sigmatab}
+\end{protocolbox}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.36\linewidth}
+\vspace{0.5em}
+\propbox{\propyes}{\propyes}{\propno}
+\end{minipage}
+
+\medskip
+
+\textbf{Completeness} holds: $g^z = g^r = a$.
+
+\textbf{Honest-verifier ZK} holds: $z = r$ is uniform in $\Z_q$ regardless of $w$. A simulator reproduces the transcript $(g^r, r)$ for any $r \leftarrow \Zq$ without knowing $w$.
+
+\textbf{Soundness fails entirely.} The check $g^z \stackrel{?}{=} a$ does not involve $h$ at all. Anyone, regardless of whether they know $w$, can pick $r \leftarrow \Zq$, set $a = g^r$ and $z = r$, and the verifier accepts. This protocol proves nothing.
+
+%% -----------------------------------------------------------
+\subsection{Third Attempt: Incorporate the Witness into the Response}
+%% -----------------------------------------------------------
+
+The fix: include $w$ in the response via $z \deq r + w$ and adjust the check to involve $h$.
+
+\medskip
+\noindent
+\begin{minipage}[t]{0.60\linewidth}
+\begin{protocolbox}
+\begin{sigmatab}{$P(h;\, w)$}{$V(h)$}
+  \makecell[l]{$r \leftarrow \Zq$ \\ $a \deq g^r$} & \send{a} & \\[2pt]
+  $z \deq r + w$ & \send{z} & Output 1 if $g^z = a \cdot h$ \\
+\end{sigmatab}
+\end{protocolbox}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.36\linewidth}
+\vspace{0.5em}
+\propbox{\propyes}{\propyes}{\propno}
+\end{minipage}
+
+\medskip
+
+\textbf{Completeness} holds: $g^z = g^{r+w} = g^r \cdot g^w = a \cdot h$.
+
+\textbf{Honest-verifier ZK} holds: $z = r + w$ is uniform in $\Z_q$ since $r$ is uniform, so the transcript leaks no information about $w$.
+
+\textbf{Soundness still fails.} A cheating prover can forge a convincing transcript \emph{without knowing $w$}:
+
+\begin{attacknote}
+\textbf{Attack.} Choose any $z \leftarrow \Zq$, then set $a \deq g^z \cdot h^{-1}$. Send $a$, then send $z$. The check becomes $g^z \stackrel{?}{=} a \cdot h = g^z \cdot h^{-1} \cdot h = g^z$. It passes.
+\end{attacknote}
+
+\subsection{What Is Missing?}
+
+In Attempts 2 and 3 the prover sends both messages with \emph{no input from the verifier in between}. This freedom is fatal: the prover can choose the response $z$ first, then backwards-engineer the commitment $a$ to make the check pass --- bypassing the need to know $w$ entirely.
+
+\begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
+\textbf{Key insight.} The verifier must send a \emph{random challenge} between the commitment and the response. This forces the prover to fix $a$ before seeing the challenge, preventing any backwards engineering. A commitment chosen \emph{before} the challenge cannot be adapted to it.
+\end{tcolorbox}
+
+This is the defining structure of a \emph{sigma protocol}: commit $\to$ challenge $\to$ respond.
+
+%% -----------------------------------------------------------
+\subsection{Fourth Attempt: A Binary Challenge}
+%% -----------------------------------------------------------
+
+We combine the two verification checks from Attempts 2 and 3, selected by a random bit from the verifier.
+
+\medskip
+\noindent
+\begin{minipage}[t]{0.65\linewidth}
+\begin{protocolbox}
+\begin{sigmatab}{$P(h;\, w)$}{$V(h)$}
+  \makecell[l]{$r \leftarrow \Zq$ \\ $a \deq g^r$} & \send{a} & \\[2pt]
+  & \recv{c} & $c \leftarrow \{0,\, 1\}$ \\[2pt]
+  \makecell[l]{If $c=0$:\; $z \deq r$ \\ If $c=1$:\; $z \deq r+w$} &
+  \send{z} &
+  \makecell[l]{If $c=0$: output 1 if $g^z = a$ \\
+               If $c=1$: output 1 if $g^z = a \cdot h$} \\
+\end{sigmatab}
+\end{protocolbox}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.36\linewidth}
+\vspace{0.5em}
+\propbox{\propyes}{\propyes}{\propyes}
+\vspace{0.5em}
+{\small\color{orange!75!black} Soundness error: $1/2$.}
+\end{minipage}
+
+\medskip
+
+\textbf{Completeness}: for $c=0$, $g^z = g^r = a$; for $c=1$, $g^z = g^{r+w} = a\cdot h$.
+
+\textbf{Honest-verifier ZK}: for each fixed $c$, a simulator picks $z \leftarrow \Zq$, sets $a = g^z$ (if $c=0$) or $a = g^z \cdot h^{-1}$ (if $c=1$), and outputs $(a,c,z)$. Both distributions match the real transcript.
+
+\textbf{Special soundness}: given two accepting transcripts $(a, 0, z_0)$ and $(a, 1, z_1)$ with the same $a$, we have $z_0 = r$ and $z_1 = r + w$. Subtracting:
+\[
+  w = z_1 - z_0 \pmod{q}.
+\]
+
+A cheating prover without $w$ can still succeed with probability $1/2$: they commit to an $a$ valid for one challenge value and hope the verifier asks for it. Running $k$ independent rounds reduces this to $2^{-k}$, but there is a cleaner way.
+
+%% -----------------------------------------------------------
+\subsection{The Schnorr Protocol: Large Challenge Space}
+%% -----------------------------------------------------------
+
+Replace the binary challenge with $c \leftarrow \Zq$. The soundness error drops from $1/2$ to $1/q$, negligible for a cryptographically large prime $q$.
+
+\medskip
+\noindent
+\begin{minipage}[t]{0.60\linewidth}
+\begin{protocolbox}
+\begin{sigmatab}{$P(h;\, w)$}{$V(h)$}
+  \makecell[l]{$r \leftarrow \Zq$ \\ $a \deq g^r$} & \send{a} & \\[2pt]
+  & \recv{c} & $c \leftarrow \Zq$ \\[2pt]
+  $z \deq r + c \cdot w$ & \send{z} &
+  Output 1 if $g^z = a \cdot h^c$ \\
+\end{sigmatab}
+\end{protocolbox}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.36\linewidth}
+\vspace{0.5em}
+\propbox{\propyes}{\propyes}{\propyes}
+\vspace{0.5em}
+{\small\color{green!60!black} Soundness error: $1/q$ (negligible).}
+\end{minipage}
+
+\medskip
+
+\textbf{Completeness}:
+\[
+  g^z = g^{r+cw} = g^r \cdot (g^w)^c = a \cdot h^c. \qquad\checkmark
+\]
+
+\textbf{Honest-verifier ZK}: for any fixed $c$, the simulator picks $z \leftarrow \Zq$, sets $a \deq g^z \cdot h^{-c}$, and outputs $(a, c, z)$. Check: $g^z \stackrel{?}{=} a \cdot h^c = g^z$. The joint distribution of $(a,z)$ is uniform over $\G \times \Zq$ --- identical to the real protocol.
+
+\textbf{Special soundness}: given two accepting transcripts $(a, c, z)$ and $(a, c', z')$ with $c \neq c'$:
+\[
+  z = r + cw, \qquad z' = r + c'w
+  \qquad\Longrightarrow\qquad
+  w = \frac{z - z'}{c - c'} \pmod{q}.
+\]
+Division is well-defined because $q$ is prime and $c \neq c'$ implies $c - c'$ is invertible.
+
+\medskip
+
+\begin{tcolorbox}[colback=green!4!white,colframe=green!50!black,boxrule=0.6pt]
+\textbf{Identification scheme.} The Schnorr protocol serves as a public-key identification scheme. The prover's \emph{secret key} is $w \leftarrow \Zq$; their \emph{public key} is $h = g^w$. Since computing $w$ from $h$ requires solving the discrete logarithm --- hard in suitable groups --- only the party who generated $h$ knows $w$. Each run of the protocol lets the prover authenticate as the owner of $h$ without exposing any information about $w$.
+\end{tcolorbox}
+
+\medskip
+
+\begin{tcolorbox}[colback=orange!5!white,colframe=orange!60!black,boxrule=0.6pt,arc=2mm]
+\textbf{Exercise.} Formally prove all three properties for the Schnorr protocol. For honest-verifier ZK, write down the explicit simulator and show the simulated and real distributions over $(a, c, z)$ are identical.
+\end{tcolorbox}
+
+%% ============================================================
+\section{A Fundamental Tension: Soundness vs.\ Zero Knowledge}
+%% ============================================================
+
+Before moving to the non-interactive world it is worth pausing on a basic incompatibility.
+
+\begin{definition}[Perfect soundness]
+A proof system has \emph{perfect soundness} if no cheating prover --- even one with unbounded computation --- can convince the verifier of a false statement with any nonzero probability.
+\end{definition}
+
+\begin{definition}[Perfect zero knowledge]
+A proof system has \emph{perfect zero knowledge} if the simulated transcript is \emph{identically distributed} to the real transcript (not merely computationally indistinguishable).
+\end{definition}
+
+\textbf{Why they cannot coexist.} Recall how the Schnorr simulator works: to fake a transcript for challenge $c$, it picks $z \leftarrow \Zq$ uniformly and sets $a \deq g^z \cdot h^{-c}$. The transcript $(a,c,z)$ is accepted and perfectly distributed. The simulator achieves this by working \emph{backwards} --- it sees $c$ before choosing $a$.
+
+A real cheating prover cannot do this: they must commit to $a$ before the verifier sends $c$. That ordering is exactly what soundness relies on.
+
+If perfect soundness held, then for any false statement $h \notin \lang$, \emph{no} transcript $(a, c, z)$ should ever pass the verifier --- the probability must be exactly zero for every $c$. Yet perfect ZK demands that simulated transcripts (produced without the witness) are identically distributed to real ones. For a nontrivial language these two requirements clash: the simulator's freedom to pick $z$ first and work backwards produces accepting transcripts that perfect soundness forbids. The incompatibility is unavoidable unless the language is trivial.
+
+In practice, proof systems therefore settle for \emph{computational} distinguishability and a \emph{negligible} soundness error --- exactly what Schnorr achieves with error $1/q$.
+
+%% ============================================================
+\section{From Interactive to Non-Interactive: The Role of the CRS}
+%% ============================================================
+
+\subsection{The problem with NIZK}
+
+In the sigma protocols above, soundness rests on the random challenge $c$ sent by the verifier \emph{after} the prover commits. Recall Attempts 2 and 3: without that challenge, the prover could choose the response first and backwards-engineer a matching commitment. The challenge is the essential ingredient that prevents this.
+
+In a \emph{non-interactive zero-knowledge} (NIZK) proof system there is no back-and-forth. The prover sends a single proof string $\zkproof$; the verifier checks it with no further communication. There is no external $c$ to anchor the commitment.
+
+\begin{tcolorbox}[colback=red!5!white,colframe=red!55!black,boxrule=0.6pt,arc=2mm]
+\textbf{The difficulty.} Without a verifier challenge, the prover and the ZK simulator face exactly the same task: produce $\zkproof$ without receiving anything from the outside. If a simulator can generate convincing proofs for true statements without the witness, a cheating prover can attempt the same strategy for false statements. Soundness and zero knowledge appear to be incompatible.
+\end{tcolorbox}
+
+\subsection{The common reference string}
+
+The solution is to introduce shared randomness via a \emph{common reference string} (CRS). A trusted setup algorithm generates
+\[
+  (\crs,\, \td) \leftarrow \simsetup(1^\lambda,\, \relation),
+\]
+publishes $\crs$, and discards (or keeps secret) the \emph{trapdoor} $\td$. The crucial asymmetry is:
+
+\begin{itemize}[leftmargin=2em]
+  \item A real prover sees only $\crs$ and must know the witness $w$ to produce a valid proof.
+  \item The ZK simulator additionally knows the trapdoor $\td$, which lets it produce fake proofs even without $w$ --- or even for false statements.
+\end{itemize}
+
+This restores the separation that the interactive challenge provided. In the interactive setting, the simulator's extra power was the ability to see $c$ before committing. In the NIZK setting, the simulator's extra power is the trapdoor $\td$.
+
+\end{document}

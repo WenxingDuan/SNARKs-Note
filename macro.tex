@@ -1,0 +1,131 @@
+% macro.tex -- all macros for zero-knowledge notes
+
+%% ---- tcolorbox libraries ----
+\tcbuselibrary{skins}
+
+%% ================================================================
+%%  Standard notation
+%% ================================================================
+\newcommand{\G}{\mathbb{G}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\Adv}{\mathcal{A}}
+\newcommand{\set}[1]{\left\{#1\right\}}
+
+% NP relation and language
+\newcommand{\relation}{\mathcal{R}}
+\newcommand{\lang}{\mathcal{L}}
+
+% NIZK game macros
+\newcommand{\statement}{x}
+\newcommand{\zkproof}{\pi}
+\newcommand{\crs}{\mathsf{crs}}
+\newcommand{\td}{\mathsf{td}}
+\newcommand{\simsetup}{\mathsf{SimSetup}}
+\newcommand{\simprove}{\mathsf{SimProve}}
+\newcommand{\verify}{\mathsf{Verify}}
+
+% ZK-specific shorthands
+\newcommand{\Zq}{\Z_q}            % Z/qZ
+\newcommand{\deq}{\mathrel{:=}}   % definitional assignment
+
+%% ================================================================
+%%  Theorem-like environments
+%% ================================================================
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+
+%% ================================================================
+%%  Typography: section headings and default tcolorbox style
+%% ================================================================
+\titleformat{\section}{\Large\bfseries\color{blue!45!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{blue!35!black}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{blue!30!black}}{\thesubsubsection}{0.6em}{}
+
+\tcbset{colback=blue!2!white,colframe=blue!50!black,boxrule=0.6pt,arc=1.5mm}
+
+%% ================================================================
+%%  Colors for protocol diagrams
+%% ================================================================
+\definecolor{zkborder}{RGB}{35,85,175}
+\definecolor{zkback}{RGB}{247,250,255}
+\definecolor{zkpropborder}{RGB}{55,120,195}
+\definecolor{zkpropback}{RGB}{240,247,255}
+
+%% ================================================================
+%%  Property checklist
+%% ================================================================
+
+%  Colored Yes / No indicators
+\newcommand{\propyes}{\textcolor{green!65!black}{\textbf{Yes}}}
+\newcommand{\propno}{\textcolor{red!65!black}{\textbf{No}}}
+
+%  \propbox{completeness}{honest-verifier ZK}{special soundness}
+\newcommand{\propbox}[3]{%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=zkpropback, colframe=zkpropborder,
+    boxrule=0.6pt, arc=2.5mm,
+    left=5pt, right=5pt, top=4pt, bottom=4pt,
+    fontupper=\small
+  ]
+    \begin{itemize}[noitemsep, leftmargin=1.3em]
+      \item Completeness?\quad #1
+      \item Honest-verifier ZK?\quad #2
+      \item Special soundness?\quad #3
+    \end{itemize}
+  \end{tcolorbox}%
+}
+
+%% ================================================================
+%%  Protocol diagram components
+%% ================================================================
+
+%  Message arrows
+\newcommand{\send}[1]{\ensuremath{\xrightarrow{\;\;#1\;\;}}}   % Prover -> Verifier
+\newcommand{\recv}[1]{\ensuremath{\xleftarrow{\;\;#1\;\;}}}    % Verifier -> Prover
+
+%  Outer frame for the protocol table.
+%  Usage: wrap \begin{sigmatab}...\end{sigmatab} inside this.
+\newtcolorbox{protocolbox}{
+  enhanced,
+  colback=zkback, colframe=zkborder,
+  arc=2.5pt, boxrule=1pt,
+  left=5pt, right=5pt, top=5pt, bottom=5pt
+}
+
+%  Protocol table (tabular only — place inside protocolbox).
+%  Arguments: #1 = prover label, #2 = verifier label.
+%  Include $...$ yourself if the label contains math.
+%
+%  Example:
+%    \begin{protocolbox}
+%    \begin{sigmatab}{$P(h;\,w)$}{$V(h)$}
+%      \makecell[l]{$r\leftarrow\Zq$\\$a\deq g^r$} & \send{a} & \\
+%      & \recv{c} & $c\leftarrow\Zq$ \\
+%      $z\deq r+c\cdot w$ & \send{z} & Output 1 if $g^z=a\cdot h^c$ \\
+%    \end{sigmatab}
+%    \end{protocolbox}
+\newenvironment{sigmatab}[2]{%
+  \small\renewcommand{\arraystretch}{1.6}%
+  \begin{tabular}{@{}p{0.37\linewidth} c p{0.41\linewidth}@{}}%
+    \multicolumn{1}{c}{\emph{Prover}\quad #1} & &
+    \multicolumn{1}{c}{\emph{Verifier}\quad #2}\\[-3pt]
+    \hline\\[-9pt]%
+}{%
+  \end{tabular}%
+}
+
+%  Attack / warning note box
+\newenvironment{attacknote}{%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=red!5!white, colframe=red!55!black,
+    boxrule=0.5pt, arc=2mm,
+    left=5pt, right=5pt, top=3pt, bottom=3pt,
+    fontupper=\small
+  ]%
+}{%
+  \end{tcolorbox}%
+}
