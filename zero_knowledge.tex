@@ -340,12 +340,6 @@ Division is well-defined because $q$ is prime and $c \neq c'$ implies $c - c'$ i
 \textbf{Identification scheme.} The Schnorr protocol serves as a public-key identification scheme. The prover's \emph{secret key} is $w \leftarrow \Zq$; their \emph{public key} is $h = g^w$. Since computing $w$ from $h$ requires solving the discrete logarithm --- hard in suitable groups --- only the party who generated $h$ knows $w$. Each run of the protocol lets the prover authenticate as the owner of $h$ without exposing any information about $w$.
 \end{tcolorbox}
 
-\medskip
-
-\begin{exercisebox}
-  Formally prove all three properties for the Schnorr protocol. For honest-verifier ZK, write down the explicit simulator and show the simulated and real distributions over $(a, c, z)$ are identical.
-\end{exercisebox}
-
 %% ============================================================
 \section{A Fundamental Tension: Soundness vs.\ Zero Knowledge}
 %% ============================================================
