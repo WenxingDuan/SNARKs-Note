@@ -350,17 +350,15 @@ Before moving to the non-interactive world it is worth pausing on a basic incomp
 A proof system has \emph{perfect soundness} if no cheating prover --- even one with unbounded computation --- can convince the verifier of a false statement with any nonzero probability.
 \end{definition}
 
-\begin{definition}[Perfect zero knowledge]
-A proof system has \emph{perfect zero knowledge} if the simulated transcript is \emph{identically distributed} to the real transcript (not merely computationally indistinguishable).
+\begin{definition}[Zero knowledge]
+A proof system is \emph{zero knowledge} if there exists an efficient simulator that, without the witness, produces transcripts that are computationally indistinguishable from real ones.
 \end{definition}
 
-\textbf{Why they cannot coexist.} Recall how the Schnorr simulator works: to fake a transcript for challenge $c$, it picks $z \leftarrow \Zq$ uniformly and sets $a \deq g^z \cdot h^{-c}$. The transcript $(a,c,z)$ is accepted and perfectly distributed. The simulator achieves this by working \emph{backwards} --- it sees $c$ before choosing $a$.
+\textbf{Why they cannot coexist.} The core mechanism behind zero knowledge is simple: if the simulator knows the challenge $c$ \emph{before} it commits to $a$, it can always produce an indistinguishable transcript without knowing the witness. In Schnorr, the simulator picks $z \leftarrow \Zq$ freely and back-computes $a \deq g^z \cdot h^{-c}$. Because $z$ is uniform and the computation is purely algebraic, the resulting transcript is indistinguishable from a real one (here it is even identically distributed).
 
-A real cheating prover cannot do this: they must commit to $a$ before the verifier sends $c$. That ordering is exactly what soundness relies on.
+Now contrast this with perfect soundness: if the proof system is perfectly sound, then for any false statement $h \notin \lang$, even a prover who knows the challenge $c$ in advance should have \emph{zero} probability of producing an accepting transcript. But the simulator technique above always succeeds for any $h$ as long as the challenge $c$ is known beforehand, without knowing the witness. The two requirements are directly at odds.
 
-If perfect soundness held, then for any false statement $h \notin \lang$, \emph{no} transcript $(a, c, z)$ should ever pass the verifier --- the probability must be exactly zero for every $c$. Yet perfect ZK demands that simulated transcripts (produced without the witness) are identically distributed to real ones. For a nontrivial language these two requirements clash: the simulator's freedom to pick $z$ first and work backwards produces accepting transcripts that perfect soundness forbids. The incompatibility is unavoidable unless the language is trivial.
-
-In practice, proof systems therefore settle for \emph{computational} distinguishability and a \emph{negligible} soundness error --- exactly what Schnorr achieves with error $1/q$.
+The resolution is to allow a small soundness error. Think of it as a \emph{backdoor}: the same algebraic shortcut that lets the simulator bypass the witness also lets a cheating prover occasionally sneak through. In Schnorr, a cheating prover can guess the challenge $c$ correctly with probability $1/q$ before committing, and then apply the simulator trick to produce an accepting transcript. That $1/q$ leakage is the unavoidable price of zero knowledge.
 
 %% ============================================================
 \section{From Interactive to Non-Interactive: The Role of the CRS}
