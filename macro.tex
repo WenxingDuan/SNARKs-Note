@@ -1,5 +1,13 @@
 % macro.tex -- all macros for zero-knowledge notes
 
+%% ---- Pairing group notation ----
+%% \GT  : the target group G_T
+%% \gone{a}, \gtwo{a}, \gT{a} : bracket encoding [a]_1, [a]_2, [a]_T
+\newcommand{\GT}{\mathbb{G}_T}
+\newcommand{\gone}[1]{[#1]_1}
+\newcommand{\gtwo}[1]{[#1]_2}
+\newcommand{\gT}[1]{[#1]_T}
+
 %% ---- tcolorbox libraries ----
 \tcbuselibrary{skins}
 
@@ -115,6 +123,19 @@
     \hline\\[-9pt]%
 }{%
   \end{tabular}%
+}
+
+%  Inline TODO note (visible in PDF)
+\newcommand{\todo}[1]{%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=yellow!20!white, colframe=orange!80!black,
+    boxrule=0.6pt, arc=2mm,
+    left=5pt, right=5pt, top=3pt, bottom=3pt,
+    fontupper=\small
+  ]%
+  \textbf{TODO:}\; #1
+  \end{tcolorbox}%
 }
 
 %  Exercise box (orange)

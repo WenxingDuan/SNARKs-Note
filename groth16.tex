@@ -1,0 +1,199 @@
+%% groth16.tex -- Construction of the Groth16 SNARK
+%% \input{groth16} inside zero_knowledge.tex
+
+%% ============================================================
+\section{Groth16: A Pairing-Based SNARK}
+%% ============================================================
+
+Groth16 is a preprocessing SNARK for arithmetic circuit satisfiability. Its proof is only three group elements, verification is a single pairing equation, and it achieves perfect completeness and perfect zero knowledge. Soundness holds against adversaries that interact with the system via generic group operations.
+
+We build the system in three layers: encode computation as a polynomial divisibility problem (Quadratic Arithmetic Program, QAP), construct an information-theoretic proof for it (Non-Interactive Linear Proof, NILP), then compile the NILP into group elements using pairings.
+
+%% -----------------------------------------------------------
+\subsection{Notation for Pairing Groups}
+%% -----------------------------------------------------------
+
+Let $(p, \G_1, \G_2, \GT, e, g, h)$ be an asymmetric bilinear group of prime order $p$. The generator of $\G_1$ is $g$, the generator of $\G_2$ is $h$, and $e : \G_1 \times \G_2 \to \GT$ is a bilinear pairing satisfying $e(g^a, h^b) = e(g,h)^{ab}$.
+
+We represent group elements by their discrete logarithms using the bracket notation
+\[
+  \gone{a} \deq g^a \in \G_1, \qquad
+  \gtwo{a} \deq h^a \in \G_2, \qquad
+  \gT{a}   \deq e(g,h)^a \in \GT, \qquad a \in \Z_p.
+\]
+This notation makes linear algebra readable. For a known scalar $c$ or known matrix $M$:
+\[
+  \gone{a} + \gone{b} = \gone{a+b}, \qquad
+  c \cdot \gone{a} = \gone{ca}, \qquad
+  M \cdot \gone{\mathbf{a}} = \gone{M\mathbf{a}}.
+\]
+The pairing provides one level of multiplication across the two source groups:
+\[
+  \gone{a} \cdot \gtwo{b} \deq e\!\left(g^a, h^b\right) = \gT{ab}.
+\]
+
+
+%% -----------------------------------------------------------
+\subsection{From Arithmetic Circuits to Quadratic Arithmetic Programs}
+%% -----------------------------------------------------------
+
+\subsubsection*{Arithmetic circuits and R1CS}
+
+An arithmetic circuit over a finite field $\F_p$ consists of addition and multiplication gates over field elements. Any such circuit can be \emph{flattened}: every gate is rewritten as a single multiplicative constraint
+\[
+  \bigl(\textstyle\sum_i A_{q,i}\, a_i\bigr)
+  \cdot
+  \bigl(\textstyle\sum_i B_{q,i}\, a_i\bigr)
+  =
+  \textstyle\sum_i C_{q,i}\, a_i
+  \qquad (q = 1,\ldots, n),
+\]
+where $z = (a_0, a_1, \ldots, a_m) \in \F_p^{m+1}$ is the \emph{assignment vector}: $a_0 = 1$ is a constant, $\phi = (a_1, \ldots, a_\ell)$ is the public statement, and $w = (a_{\ell+1}, \ldots, a_m)$ is the secret witness. The $n$ constraints are collected into three matrices $A, B, C \in \F_p^{n \times (m+1)}$ --- this is the \emph{rank-1 constraint system} (R1CS). Arithmetic circuit satisfiability is NP-complete: any NP statement can be compiled into an R1CS instance over a suitable field, so a proof system for R1CS is a proof system for all of NP.
+
+\subsubsection*{Quadratic arithmetic programs}
+
+Checking $n$ separate scalar equations one by one would be costly. The key algebraic trick is to compress them into a single polynomial divisibility test.
+
+Fix $n$ distinct field elements $r_1, \ldots, r_n \in \F_p$, one for each constraint. Define the vanishing polynomial
+\[
+  t(X) = \prod_{q=1}^{n}(X - r_q).
+\]
+For each variable index $i \in \{0, \ldots, m\}$, interpolate three polynomials $u_i, v_i, w_i \in \F_p[X]$ of degree at most $n-1$ such that
+\[
+  u_i(r_q) = A_{q,i}, \qquad v_i(r_q) = B_{q,i}, \qquad w_i(r_q) = C_{q,i} \qquad \forall\, q.
+\]
+\todo{Add a visualisation showing how the columns of the $A$, $B$, $C$ matrices are read off and interpolated into the polynomials $u_i$, $v_i$, $w_i$.}
+Given an assignment $z$, define the aggregated polynomials
+\[
+  U(X) = \sum_{i=0}^{m} a_i\, u_i(X), \qquad
+  V(X) = \sum_{i=0}^{m} a_i\, v_i(X), \qquad
+  W(X) = \sum_{i=0}^{m} a_i\, w_i(X).
+\]
+At each constraint point $r_q$, the R1CS equation $U(r_q)\cdot V(r_q) = W(r_q)$ must hold. Since $t(X)$ vanishes precisely at $r_1, \ldots, r_n$, this is equivalent to
+\[
+  \boxed{t(X) \;\Big|\; U(X)\cdot V(X) - W(X).}
+\]
+Equivalently, there exists a degree-$(n-2)$ quotient polynomial $h(X)$ such that
+\[
+  U(X)\cdot V(X) = W(X) + h(X)\,t(X).
+\]
+This is the \emph{quadratic arithmetic program} (QAP) relation for the circuit. The advantage over R1CS is that $n$ separate equations have been replaced by one polynomial identity checkable at a single random point --- exactly the Schwartz--Zippel trick.
+
+%% -----------------------------------------------------------
+\subsection{A Non-Interactive Linear Proof for QAP}
+%% -----------------------------------------------------------
+
+A \emph{non-interactive linear proof} (NILP) is an information-theoretic proof system where the prover's messages are linear functions of a common reference string $\sigma$. We now construct such a system for the QAP relation.
+
+\todo{Explain why this NILP is non-interactive despite stemming from a Linear Interactive Proof (LIP): the CRS plays the role of the verifier's challenges, collapsing the interaction into a single message. Discuss the connection between 2-move LIPs and NILPs more carefully.}
+
+\subsubsection*{Setup}
+
+Pick a random trapdoor $\tau = (\alpha, \beta, \gamma, \delta, x) \in \F_p^{*5}$ and define the common reference string $\sigma$ as the collection of field evaluations
+\[
+\sigma =
+\left(
+\begin{aligned}
+&\alpha,\; \beta,\; \gamma,\; \delta,\;\{x^i\}_{i=0}^{n-1},\\[2pt]
+&\left\{\frac{\beta u_i(x)+\alpha v_i(x)+w_i(x)}{\gamma}\right\}_{i=0}^{\ell},\\[4pt]
+&\left\{\frac{\beta u_i(x)+\alpha v_i(x)+w_i(x)}{\delta}\right\}_{i=\ell+1}^{m},\\[4pt]
+&\left\{\frac{x^i\, t(x)}{\delta}\right\}_{i=0}^{n-2}
+\end{aligned}
+\right).
+\]
+The first block enables evaluation of arbitrary polynomials at $x$. The second block encodes the public witness terms, scaled by $\gamma$. The third encodes the private witness terms, scaled by $\delta$. The last encodes powers of $x$ weighted by $t(x)/\delta$, allowing the prover to compute $h(x)\,t(x)/\delta$ as a linear combination.
+
+\todo{Discuss what $\alpha$, $\beta$, $\gamma$, and $\delta$ each do exactly: why they appear in the CRS, how they enforce consistency between $A$, $B$, $C$, and why the $\gamma$/$\delta$ separation is necessary.}
+
+\subsubsection*{Prover}
+
+Given a satisfying assignment $(a_1, \ldots, a_m)$, the prover computes $h(X)$ from the QAP relation, then picks two random blinding scalars $r, s \leftarrow \F_p$ and sets
+\begin{align*}
+  A &\deq \alpha + U(x) + r\delta, \\
+  B &\deq \beta  + V(x) + s\delta, \\
+  C &\deq \frac{\displaystyle\sum_{i=\ell+1}^{m} a_i\bigl(\beta u_i(x)+\alpha v_i(x)+w_i(x)\bigr) + h(x)\,t(x)}{\delta} + As + rB - rs\delta.
+\end{align*}
+The proof is $\pi = (A, B, C)$.
+
+\subsubsection*{Verifier}
+
+The verifier checks the single equation
+\[
+  A \cdot B
+  \;\stackrel{?}{=}\;
+  \underbrace{\alpha\beta}_{\text{(i)}}
+  \;+\;
+  \underbrace{\sum_{i=0}^{\ell} a_i \cdot \frac{\beta u_i(x)+\alpha v_i(x)+w_i(x)}{\gamma}}_{\text{(ii)}} \cdot\, \gamma
+  \;+\;
+  \underbrace{C \cdot \delta}_{\text{(iii)}}.
+\]
+The three terms on the right play distinct roles.
+\begin{itemize}[noitemsep, leftmargin=2em]
+  \item[(i)] $\alpha\beta$ is a fixed anchor from the setup. Its presence forces $A$ and $B$ to contain genuine $\alpha$ and $\beta$ offsets respectively, preventing a prover from constructing $A$ and $B$ independently of the structure of $\sigma$.
+  \item[(ii)] The sum over $i = 0, \ldots, \ell$ incorporates the \emph{public inputs} $a_0, \ldots, a_\ell$ --- the statement $\phi$ that the verifier knows. These are precomputed in the CRS scaled by $\gamma$ and $\gamma$ cancels out, leaving the verifier to evaluate this term using only public data. Note that $\alpha$ and $\beta$ also appear here, but they are \emph{setup parameters} embedded in the precomputed CRS entries, not the circuit's inputs.
+  \item[(iii)] $C \cdot \delta$ is where the private witness $a_{\ell+1}, \ldots, a_m$ is encoded. The $\delta$ scaling keeps it algebraically separated from term (ii), preventing the prover from mixing public and private contributions.
+\end{itemize}
+
+\subsubsection*{Simulator}
+
+Given the trapdoor $\tau$, the simulator ignores the witness entirely. It picks $A, B \leftarrow \F_p$ uniformly at random and computes
+\[
+  C \deq \frac{A B \;-\; \alpha\beta \;-\; \displaystyle\sum_{i=0}^{\ell} a_i\bigl(\beta u_i(x)+\alpha v_i(x)+w_i(x)\bigr)}{\delta}.
+\]
+
+\subsubsection*{Why this achieves zero knowledge}
+
+The blinding scalars $r$ and $s$ make $A$ and $B$ uniformly distributed in $\F_p$, independent of the witness. Given uniform $A$ and $B$, the verification equation uniquely determines $C$. The real distribution of $(A, B, C)$ is therefore identical to the simulated one: two uniform field elements followed by their forced companion. This is perfect zero knowledge.
+
+\subsubsection*{Why this is sound against affine strategies}
+
+An affine prover strategy computes $(A, B, C)$ as linear combinations of $\sigma$. Viewing the verification equation as a polynomial identity in the formal indeterminates $\alpha, \beta, \gamma, \delta, x$ and applying Schwartz--Zippel, any affine strategy that passes verification with non-negligible probability must satisfy the identity formally. A careful analysis of the monomials (particularly those involving $\alpha\beta$, $1/\gamma^2$, and $1/\delta^2$) forces the coefficients to encode a consistent assignment, from which the witness $(a_{\ell+1}, \ldots, a_m)$ can be extracted.
+
+\todo{Add the full monomial analysis proof here, following Theorem~1 of the Groth (2016) paper.}
+
+%% -----------------------------------------------------------
+\subsection{Compiling to Pairings: The Generic Group Model}
+%% -----------------------------------------------------------
+
+The NILP works over a field, but we need a cryptographic argument --- the prover should not be able to read off $x$ from $\sigma$. The compilation step replaces every field element in $\sigma$ with its bracket encoding, and $(A, B, C)$ become $(\gone{A}, \gtwo{B}, \gone{C})$.
+
+The compiled verification equation is:
+\[
+  \gone{A} \cdot \gtwo{B}
+  \;=\;
+  \gone{\alpha}\cdot\gtwo{\beta}
+  \;+\;
+  \sum_{i=0}^{\ell} a_i\,
+    \left[\frac{\beta u_i(x)+\alpha v_i(x)+w_i(x)}{\gamma}\right]_{\!1}
+    \cdot\, \gtwo{\gamma}
+  \;+\;
+  \gone{C}\cdot\gtwo{\delta}.
+\]
+The prover computes $\gone{A}$, $\gone{C}$, $\gtwo{B}$ as linear combinations of the CRS elements --- this is exactly the NILP prover running in the exponent. The verifier checks one pairing product equation using three pairings in total.
+
+\textbf{Lifting soundness via the generic group model.} In the generic group model, a prover can only use the group elements in $\sigma$ through addition (and scalar multiplication) --- it cannot read their discrete logarithms. Any computation it performs on $\gone{\sigma_1}$ and $\gtwo{\sigma_2}$ is therefore a sequence of affine operations, corresponding exactly to choosing a proof matrix $\Pi$ and computing $\Pi\sigma$. This is precisely an affine strategy in the NILP sense. Combined with a \emph{disclosure-freeness} property of the CRS --- which guarantees that the structure of $\sigma$ cannot be exploited to choose a non-affine strategy --- the NILP's soundness against affine strategies lifts to soundness against all generic adversaries.
+
+%% -----------------------------------------------------------
+\subsection*{Summary: The Groth16 Proof System}
+%% -----------------------------------------------------------
+
+\begin{tcolorbox}[enhanced, colback=blue!3!white, colframe=blue!45!black,
+                  arc=2.5pt, boxrule=1pt, left=6pt, right=6pt, top=5pt, bottom=5pt]
+\small
+\textbf{Setup.} Sample $\tau = (\alpha,\beta,\gamma,\delta,x) \leftarrow \F_p^{*5}$.
+Publish $\sigma = \bigl([\sigma_1]_1,\, [\sigma_2]_2\bigr)$ as described above. Keep $\tau$ secret.
+
+\medskip
+\textbf{Prove.} Given $(a_1,\ldots,a_m)$ satisfying the circuit, pick $r,s \leftarrow \F_p$ and output
+$\pi = \bigl(\gone{A},\, \gone{C},\, \gtwo{B}\bigr) \in \G_1^2 \times \G_2$.
+
+\medskip
+\textbf{Verify.} Check:
+$\gone{A} \cdot \gtwo{B} = \gone{\alpha}\cdot\gtwo{\beta} + \displaystyle\sum_{i=0}^{\ell} a_i\,\gone{(\cdot)_i}\cdot\gtwo{\gamma} + \gone{C}\cdot\gtwo{\delta}$.
+
+\medskip
+\textbf{Proof size:} \quad $2$ elements in $\G_1$, \quad $1$ element in $\G_2$ \quad $= 3$ group elements.\\
+\textbf{Verification:} \quad $1$ pairing product equation requiring $3$ online pairings:
+$e(\gone{A}, \gtwo{B})$,\; $e\!\left(\textstyle\sum a_i K_i,\, \gtwo{\gamma}\right)$,\; $e(\gone{C}, \gtwo{\delta})$.
+The fourth term $\gT{\alpha\beta}$ is precomputed and stored in the verifier key, so no extra pairing is needed for it.
+\end{tcolorbox}
