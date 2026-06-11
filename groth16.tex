@@ -1,11 +1,25 @@
-%% groth16.tex -- Construction of the Groth16 SNARK
+  %% groth16.tex -- Construction of the Groth16 SNARK
 %% \input{groth16} inside zero_knowledge.tex
 
 %% ============================================================
 \section{Groth16: A Pairing-Based SNARK}
 %% ============================================================
 
-Groth16 is a preprocessing SNARK for arithmetic circuit satisfiability. Its proof is only three group elements, verification is a single pairing equation, and it achieves perfect completeness and perfect zero knowledge. Soundness holds against adversaries that interact with the system via generic group operations.
+Groth16 is a preprocessing SNARK for arithmetic circuit satisfiability. Before diving into the construction, it is worth recording the properties the scheme achieves, as they motivate several design choices along the way.
+
+\paragraph{Security properties (as a NIZK argument).}
+\begin{itemize}
+  \item \textbf{Perfect completeness.} An honest prover with a valid witness always convinces the verifier.
+  \item \textbf{Perfect zero-knowledge.} The proof reveals nothing beyond the truth of the statement; the simulator produces identically distributed proofs without the witness.
+  \item \textbf{Computational soundness (argument of knowledge).} No computationally bounded prover can produce an accepting proof for a false statement, under the generic group model assumption.
+\end{itemize}
+
+\paragraph{Efficiency.}
+\begin{itemize}
+  \item \textbf{Asymmetric (Type III) pairings.} Using $\G_1 \neq \G_2$ with no efficient isomorphism gives the best known pairing performance.
+  \item \textbf{3 group element proofs.} The proof $\pi = (\gone{A}, \gtwo{B}, \gone{C})$ consists of exactly two $\G_1$ elements and one $\G_2$ element --- the smallest known proof size for a pairing-based SNARK.
+  \item \textbf{Low verification cost.} Verification reduces to three pairing evaluations, independent of the circuit size.
+\end{itemize}
 
 We build the system in three layers: encode computation as a polynomial divisibility problem (Quadratic Arithmetic Program, QAP), construct an information-theoretic proof for it (Non-Interactive Linear Proof, NILP), then compile the NILP into group elements using pairings.
 

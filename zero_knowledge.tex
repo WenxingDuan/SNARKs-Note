@@ -193,6 +193,10 @@ To hide $w$, the prover randomises the response with a fresh nonce $r$: commit t
 
 \textbf{Soundness fails entirely.} The check $g^z \stackrel{?}{=} a$ does not involve $h$ at all. Anyone, regardless of whether they know $w$, can pick $r \leftarrow \Zq$, set $a = g^r$ and $z = r$, and the verifier accepts. This protocol proves nothing.
 
+\begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
+  \textit{Takeaway.} This construction looks stupid, and it is --- but deliberately so. The lesson is that zero-knowledge is trivial to achieve if we are willing to abandon soundness entirely: just have the prover send something independent of the witness and the verifier always accept. The hard problem is achieving \emph{both} simultaneously.
+\end{tcolorbox}
+
 %% -----------------------------------------------------------
 \subsection{Third Attempt: Incorporate the Witness into the Response}
 %% -----------------------------------------------------------
@@ -228,11 +232,20 @@ The fix: include $w$ in the response via $z \deq r + w$ and adjust the check to 
 
 \subsection{What Is Missing?}
 
-In Attempts 2 and 3 the prover sends both messages with \emph{no input from the verifier in between}. This freedom is fatal: the prover can choose the response $z$ first, then backwards-engineer the commitment $a$ to make the check pass --- bypassing the need to know $w$ entirely.
+Notice something about Attempt 3: if the prover \emph{follows the protocol} and genuinely sets $a \deq g^r$ for a fresh random $r$, then producing a valid response $z = r + w$ requires knowing $w$. An honest prover who lacks $w$ is stuck. In this sense, the protocol would be sound --- \emph{if} we could trust the prover to generate $a$ correctly.
 
-\begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
-\textbf{Key insight.} The verifier must send a \emph{random challenge} between the commitment and the response. This forces the prover to fix $a$ before seeing the challenge, preventing any backwards engineering. A commitment chosen \emph{before} the challenge cannot be adapted to it.
-\end{tcolorbox}
+The problem is that we cannot. The prover is free to choose $a$ in any way they like; the verifier sees only the final value and has no means of checking how it was produced. A cheating prover exploits this by working \emph{backwards}: pick any $z$ first, then set $a \deq g^z \cdot h^{-1}$ so that the check $g^z = a \cdot h$ passes by construction. No knowledge of $w$ is needed.
+
+\begin{exercisebox}
+The prover has complete freedom in choosing $a$: the verifier sees only the value, not how it was produced. Can you think of a way to modify the protocol so that if the prover deviates from the specification --- i.e.\ does not set $a = g^r$ for some $r$ they know --- the verifier has a chance of catching them?
+\end{exercisebox}
+
+The fix is to insert a verifier challenge \emph{after} the commitment is sent. The challenge creates two competing tests, and the prover must be prepared for either:
+\begin{itemize}
+  \item \textbf{Challenge $c = 0$} (protocol compliance): open $a$ by revealing $r$, i.e.\ prove $g^z = a$. This checks that the prover actually committed to a valid $g^r$ and knows the exponent.
+  \item \textbf{Challenge $c = 1$} (knowledge of witness): prove $g^z = a \cdot h$. This checks that the prover can incorporate $w$ into the response.
+\end{itemize}
+A cheating prover can pre-engineer $a$ to pass one of these tests, but not both simultaneously --- because committing to $a$ before the challenge is sent means they cannot adapt it once they learn which check the verifier will run. The challenge forces a genuine commitment.
 
 This is the defining structure of a \emph{sigma protocol}: commit $\to$ challenge $\to$ respond.
 
@@ -344,7 +357,7 @@ Division is well-defined because $q$ is prime and $c \neq c'$ implies $c - c'$ i
 \section{A Fundamental Tension: Soundness vs.\ Zero Knowledge}
 %% ============================================================
 
-Before moving to the non-interactive world it is worth pausing on a basic incompatibility.
+\todo{rephrase this part}Before moving to the non-interactive world it is worth pausing on a basic incompatibility.
 
 \begin{definition}[Perfect soundness]
 A proof system has \emph{perfect soundness} if no cheating prover --- even one with unbounded computation --- can convince the verifier of a false statement with any nonzero probability.
@@ -359,6 +372,20 @@ A proof system is \emph{zero knowledge} if there exists an efficient simulator t
 Now contrast this with perfect soundness: if the proof system is perfectly sound, then for any false statement $h \notin \lang$, even a prover who knows the challenge $c$ in advance should have \emph{zero} probability of producing an accepting transcript. But the simulator technique above always succeeds for any $h$ as long as the challenge $c$ is known beforehand, without knowing the witness. The two requirements are directly at odds.
 
 The resolution is to allow a small soundness error. Think of it as a \emph{backdoor}: the same algebraic shortcut that lets the simulator bypass the witness also lets a cheating prover occasionally sneak through. In Schnorr, a cheating prover can guess the challenge $c$ correctly with probability $1/q$ before committing, and then apply the simulator trick to produce an accepting transcript. That $1/q$ leakage is the unavoidable price of zero knowledge.
+
+%% ============================================================
+\section{The Scope of Zero-Knowledge Proofs}
+%% ============================================================
+\todo{also add the intro example, also i want to add some exercise abotu suduko}The Schnorr protocol proves one thing about one specific algebraic structure. A natural question is how broadly zero knowledge applies: is it a niche property of a handful of number-theoretic problems, or does it scale?
+
+\textbf{Zero knowledge for all of NP.}
+Goldreich, Micali, and Wigderson~\cite{GMW86} showed that, assuming one-way functions exist, \emph{every} language in NP has a computational zero-knowledge proof system. The argument proceeds by reduction: any NP statement can be compiled into a graph 3-coloring instance (since 3-coloring is NP-complete), and one can construct a ZK proof for 3-coloring using a commitment scheme. Because the reduction is polynomial-time and ZK composes, this immediately gives a ZK proof for the original statement.
+
+\textbf{Zero knowledge for all of IP.}
+The scope extends even further. Ben-Or, Goldreich, Goldwasser, H\aa stad, Kilian, Micali, and Rogaway~\cite{BGGHKMR88} showed that \emph{every} language that has an interactive proof --- the entire complexity class IP --- also has a computational zero-knowledge interactive proof, again assuming one-way functions. Since IP $=$ PSPACE~\cite{Shamir90}, this means zero knowledge reaches well beyond NP into problems believed to be significantly harder.
+
+\textbf{A necessary assumption.}
+\todo{add discussion here about the power of verifier, it cannot be too powerful, and linkt to the fact for example for the suduku, if you can solve it, zkp is meaningless}Both results require computational assumptions. This is not merely a convenience: the \emph{information-theoretic} (or \emph{perfect/statistical}) ZK setting, where indistinguishability must hold even against an unbounded verifier, is provably more restricted. Some non-trivial languages --- graph isomorphism is the canonical example --- do have perfect ZK proofs. But Fortnow~\cite{Fortnow87} showed that if \emph{every} NP language had a perfect ZK proof, the polynomial hierarchy would collapse, which is widely believed not to happen. Computational assumptions are therefore necessary to extend zero knowledge to all of NP and beyond.
 
 %% ============================================================
 \section{From Interactive to Non-Interactive: The Role of the CRS}
@@ -390,5 +417,8 @@ publishes $\crs$, and discards (or keeps secret) the \emph{trapdoor} $\td$. The 
 This restores the separation that the interactive challenge provided. In the interactive setting, the simulator's extra power was the ability to see $c$ before committing. In the NIZK setting, the simulator's extra power is the trapdoor $\td$.
 
 \input{groth16}
+
+\bibliographystyle{alpha}
+\bibliography{zero_knowledge_references}
 
 \end{document}
