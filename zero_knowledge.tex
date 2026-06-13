@@ -45,7 +45,7 @@ Zero-knowledge proofs ask: can we do better? Can a prover convince a verifier th
 
 The answer, perhaps surprisingly, is yes.
 
-\subsection*{The simulator test}
+\subsection*{The simulation paradigm}
 
 Take \emph{perfect secrecy} as a concrete illustration. A cipher $\mathsf{Enc}$ is perfectly secret if
 \[
@@ -97,7 +97,7 @@ While Bob waits at the entrance, Alice enters the cave and walks down one of the
 \end{minipage}\hfill
 \begin{minipage}[t]{0.36\linewidth}
 \vspace{0.5em}
-\propbox{\propyes}{\propyes}{\propno}
+\propboxsound{\propyes}{\propyes}{\propyes}
 \end{minipage}
 
 \medskip
@@ -108,9 +108,7 @@ While Bob waits at the entrance, Alice enters the cave and walks down one of the
 
 \textbf{Honest-verifier zero knowledge.} The observable transcript is just $(c, z)$. An honest Alice always has $z = c$, so the transcript contains only the challenge value --- which the verifier chose themselves. A simulator that picks $c \leftarrow \{A, B\}$ at random and sets $z = c$ produces the same distribution without knowing any magic word.
 
-\textbf{Special soundness fails.} Special soundness requires: given two accepting transcripts sharing the \emph{same commitment} but with \emph{different} challenges, an efficient extractor can recover the witness. Here the ``commitment'' is Alice's choice of branch, which is private and never observed by Bob. Even if we could somehow observe it, the transcripts only confirm that Alice exited the correct side --- they carry no algebraic trace of the magic word. No extractor can recover an opaque password from a pair of exit choices.
-
-This is unlike the DLOG protocols below, where the witness $w$ appears \emph{linearly} in the response and can be recovered by subtraction.
+\textbf{Soundness.} If Alice does \emph{not} know the magic word, she must commit to one branch before hearing Bob's challenge. She exits successfully only if Bob happens to call the side she already entered. Since Bob's choice is uniformly random, a cheating Alice passes with probability at most $1/2$ per round. 
 
 %% ============================================================
 \subsection{Exercise: The Apple Test}
@@ -165,7 +163,8 @@ The most direct approach: just send $w$.
 \textbf{Honest-verifier ZK fails}: $w$ is sent in the clear. The verifier directly learns the discrete logarithm.
 
 %% -----------------------------------------------------------
-\subsection{Second Attempt: Blind the Response with a Nonce}
+\subsection{Second Attempt: Blind the Response with a Nonce}%
+\label{subsec:second-attempt}
 %% -----------------------------------------------------------
 
 To hide $w$, the prover randomises the response with a fresh nonce $r$: commit to $g^r$ and then send $r$ as the response.
@@ -349,34 +348,80 @@ Division is well-defined because $q$ is prime and $c \neq c'$ implies $c - c'$ i
 
 \medskip
 
-\begin{tcolorbox}[colback=green!4!white,colframe=green!50!black,boxrule=0.6pt]
-\textbf{Identification scheme.} The Schnorr protocol serves as a public-key identification scheme. The prover's \emph{secret key} is $w \leftarrow \Zq$; their \emph{public key} is $h = g^w$. Since computing $w$ from $h$ requires solving the discrete logarithm --- hard in suitable groups --- only the party who generated $h$ knows $w$. Each run of the protocol lets the prover authenticate as the owner of $h$ without exposing any information about $w$.
+\begin{tcolorbox}[colback=green!4!white,colframe=green!50!black,boxrule=0.6pt,
+  title=\textbf{Further reading: from identification to signatures and beyond}]
+\small
+
+\textbf{Identification.}
+The Schnorr protocol is a public-key \emph{identification scheme}: the prover's secret key is $w \leftarrow \Zq$ and the public key is $h = g^w$.
+Only whoever knows $w$ can pass the protocol, because computing $w$ from $h$ requires solving the discrete logarithm.
+
+\medskip
+\textbf{Digital signatures.}
+A signature scheme arises from an identification scheme by removing the verifier: instead of waiting for a random challenge, the signer derives the challenge from the message by hashing, $c = H(a \,\|\, m)$, and then completes the response $z$ as usual.
+The resulting triple $(a, c, z)$ is a non-interactive proof of knowledge of $w$ that is irrevocably tied to $m$ --- any change to the message alters $c$, invalidating $z$.
+This is the \textbf{Fiat--Shamir transform}~\cite{FiatShamir86}; applying it to Schnorr identification yields the \textbf{Schnorr signature scheme}~\cite{Schnorr89}, standardized as EdDSA~\cite{BDLSY11}.
+The same recipe applies to any sigma protocol, giving a post-quantum family: \textbf{Falcon}~\cite{Falcon20} based on NTRU lattices, \textbf{PICNIC}~\cite{PICNIC17} using only symmetric-key primitives via MPC-in-the-head~\cite{IKOS07}, and \textbf{FAEST}~\cite{FAEST23} using VOLE-in-the-head for smaller proofs.
+
+\smallskip
+A crucial caveat: the hash function must behave as a \emph{random oracle} for the security proof to work.
+Without this assumption, non-interactive Fiat--Shamir can be broken in the standard model~\cite{GoldwasserKalai03}.
 \end{tcolorbox}
 
 %% ============================================================
-\section{A Fundamental Tension: Soundness vs.\ Zero Knowledge}
+\section{Why Can Proofs Be Zero-Knowledge?}
 %% ============================================================
 
-\todo{rephrase this part}Before moving to the non-interactive world it is worth pausing on a basic incompatibility.
+Attempt~2 (\S\ref{subsec:second-attempt}) made the point starkly: zero knowledge without soundness is trivial --- the prover ignores the witness, the verifier ignores $h$, and simulation is immediate. The hard question is whether we can have \emph{both}. To answer it precisely we need two distinct notions of soundness.
 
-\begin{definition}[Perfect soundness]
-A proof system has \emph{perfect soundness} if no cheating prover --- even one with unbounded computation --- can convince the verifier of a false statement with any nonzero probability.
+\begin{definition}[Soundness]
+A proof system is \emph{sound} if for any \emph{false} statement $x \notin \lang$, no cheating prover can convince the verifier with more than negligible probability.
+\emph{Perfect} soundness requires this probability to be exactly zero, even against unbounded provers.
+\end{definition}
+
+\begin{definition}[Knowledge soundness / Special soundness]
+A sigma protocol has \emph{special soundness} if there exists an efficient extractor that, given any two accepting transcripts $(a, c, z)$ and $(a, c', z')$ with the same commitment $a$ but different challenges $c \neq c'$, outputs a valid witness $w$.
+A proof system with this property is an \emph{argument of knowledge}: the prover must \emph{know} a witness, not merely that one exists.
 \end{definition}
 
 \begin{definition}[Zero knowledge]
-A proof system is \emph{zero knowledge} if there exists an efficient simulator that, without the witness, produces transcripts that are computationally indistinguishable from real ones.
+A proof system is \emph{zero knowledge} if there exists an efficient simulator that, without the witness, produces transcripts computationally indistinguishable from real ones.
 \end{definition}
 
-\textbf{Why they cannot coexist.} The core mechanism behind zero knowledge is simple: if the simulator knows the challenge $c$ \emph{before} it commits to $a$, it can always produce an indistinguishable transcript without knowing the witness. In Schnorr, the simulator picks $z \leftarrow \Zq$ freely and back-computes $a \deq g^z \cdot h^{-c}$. Because $z$ is uniform and the computation is purely algebraic, the resulting transcript is indistinguishable from a real one (here it is even identically distributed).
+\begin{remark}
+The two soundness notions capture different threats.
+\emph{Soundness} rules out provers who try to prove a \emph{false} statement ($x \notin \lang$); a system with this property is called an \emph{argument} (or \emph{proof}).
+\emph{Knowledge soundness} goes further: it rules out provers who claim knowledge of a witness for a \emph{true} statement without actually possessing one; such a system is an \emph{argument of knowledge}.
 
-Now contrast this with perfect soundness: if the proof system is perfectly sound, then for any false statement $h \notin \lang$, even a prover who knows the challenge $c$ in advance should have \emph{zero} probability of producing an accepting transcript. But the simulator technique above always succeeds for any $h$ as long as the challenge $c$ is known beforehand, without knowing the witness. The two requirements are directly at odds.
+The Ali~Baba cave is an argument --- a cheater without the magic word passes with probability at most $1/2$ per round --- but \emph{not} an argument of knowledge: two accepting transcripts are just a pair of exit choices and carry no algebraic trace of the password from which it could be extracted.
+Schnorr, by contrast, is an argument of knowledge via special soundness: two transcripts $(a,c,z)$ and $(a,c',z')$ immediately yield $w = (z-z')/(c-c')$.
+\end{remark}
 
-The resolution is to allow a small soundness error. Think of it as a \emph{backdoor}: the same algebraic shortcut that lets the simulator bypass the witness also lets a cheating prover occasionally sneak through. In Schnorr, a cheating prover can guess the challenge $c$ correctly with probability $1/q$ before committing, and then apply the simulator trick to produce an accepting transcript. That $1/q$ leakage is the unavoidable price of zero knowledge.
+\medskip
+\textbf{Why perfect soundness and zero knowledge cannot coexist.}
 
-%% ============================================================
-\section{The Scope of Zero-Knowledge Proofs}
-%% ============================================================
-\todo{also add the intro example, also i want to add some exercise abotu suduko}The Schnorr protocol proves one thing about one specific algebraic structure. A natural question is how broadly zero knowledge applies: is it a niche property of a handful of number-theoretic problems, or does it scale?
+The ZK simulator's power is knowing the challenge $c$ \emph{before} committing. This is precisely the same shortcut a cheating prover would exploit.
+
+\textit{Soundness (Ali~Baba).}
+The simulator, given $c$ in advance, simply enters the correct branch and walks out --- a perfect transcript with no magic word required.
+A wordless cheating Alice can do exactly the same if she knows $c$ first.
+Perfect soundness would require probability zero of  cheating.
+
+\textit{Knowledge soundness (Schnorr).}
+The simulator picks $z \leftarrow \Zq$ and back-computes $a \deq g^z \cdot h^{-c}$ without ever using $w$.
+A cheating prover who guesses $c$ correctly (with probability $1/q$) before committing can run the exact same forgery.
+Perfect knowledge soundness would require zero probability of forging.
+
+
+\subsection{The Scope of Zero-Knowledge Proofs}
+
+\begin{exercisebox}
+  A Sudoku puzzle is a $9\times 9$ grid partially filled with digits $1$--$9$, where the goal is to complete the grid so that every row, every column, and every $3\times 3$ box contains each digit exactly once. The completed grid is the \emph{witness}; the partially filled puzzle is the \emph{public statement}.
+
+  Design a zero-knowledge proof system that allows a prover to convince a verifier that they know a valid solution to a given Sudoku puzzle, without revealing anything about the solution itself. Your protocol should satisfy completeness, soundness, and zero knowledge. Describe how you would design this system.
+\end{exercisebox}
+
+The Schnorr protocol proves one specific algebraic statement. A natural question is how broadly zero knowledge applies: is it a niche property of a handful of number-theoretic problems, or does it scale?
 
 \textbf{Zero knowledge for all of NP.}
 Goldreich, Micali, and Wigderson~\cite{GMW86} showed that, assuming one-way functions exist, \emph{every} language in NP has a computational zero-knowledge proof system. The argument proceeds by reduction: any NP statement can be compiled into a graph 3-coloring instance (since 3-coloring is NP-complete), and one can construct a ZK proof for 3-coloring using a commitment scheme. Because the reduction is polynomial-time and ZK composes, this immediately gives a ZK proof for the original statement.
@@ -385,7 +430,7 @@ Goldreich, Micali, and Wigderson~\cite{GMW86} showed that, assuming one-way func
 The scope extends even further. Ben-Or, Goldreich, Goldwasser, H\aa stad, Kilian, Micali, and Rogaway~\cite{BGGHKMR88} showed that \emph{every} language that has an interactive proof --- the entire complexity class IP --- also has a computational zero-knowledge interactive proof, again assuming one-way functions. Since IP $=$ PSPACE~\cite{Shamir90}, this means zero knowledge reaches well beyond NP into problems believed to be significantly harder.
 
 \textbf{A necessary assumption.}
-\todo{add discussion here about the power of verifier, it cannot be too powerful, and linkt to the fact for example for the suduku, if you can solve it, zkp is meaningless}Both results require computational assumptions. This is not merely a convenience: the \emph{information-theoretic} (or \emph{perfect/statistical}) ZK setting, where indistinguishability must hold even against an unbounded verifier, is provably more restricted. Some non-trivial languages --- graph isomorphism is the canonical example --- do have perfect ZK proofs. But Fortnow~\cite{Fortnow87} showed that if \emph{every} NP language had a perfect ZK proof, the polynomial hierarchy would collapse, which is widely believed not to happen. Computational assumptions are therefore necessary to extend zero knowledge to all of NP and beyond.
+\todo{add discussion here about the power of verifier, it cannot be too powerful, and link to the fact for example for the sudoku, if you can solve it, ZKP is meaningless}Both results require computational assumptions. This is not merely a convenience: the \emph{information-theoretic} (or \emph{perfect/statistical}) ZK setting, where indistinguishability must hold even against an unbounded verifier, is provably more restricted. Some non-trivial languages --- graph isomorphism is the canonical example --- do have perfect ZK proofs. But Fortnow~\cite{Fortnow87} showed that if \emph{every} NP language had a perfect ZK proof, the polynomial hierarchy would collapse, which is widely believed not to happen. Computational assumptions are therefore necessary to extend zero knowledge to all of NP and beyond.
 
 %% ============================================================
 \section{From Interactive to Non-Interactive: The Role of the CRS}

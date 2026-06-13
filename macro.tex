@@ -70,6 +70,22 @@
 \newcommand{\propno}{\textcolor{red!65!black}{\textbf{No}}}
 
 %  \propbox{completeness}{honest-verifier ZK}{special soundness}
+%  \propboxsound{completeness}{honest-verifier ZK}{soundness}  (no "special")
+\newcommand{\propboxsound}[3]{%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=zkpropback, colframe=zkpropborder,
+    boxrule=0.6pt, arc=2.5mm,
+    left=5pt, right=5pt, top=4pt, bottom=4pt,
+    fontupper=\small
+  ]
+    \begin{itemize}[noitemsep, leftmargin=1.3em]
+      \item Completeness?\quad #1
+      \item Honest-verifier ZK?\quad #2
+      \item Soundness?\quad #3
+    \end{itemize}
+  \end{tcolorbox}%
+}
 \newcommand{\propbox}[3]{%
   \begin{tcolorbox}[
     enhanced,
