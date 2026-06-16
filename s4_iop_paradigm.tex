@@ -1,0 +1,63 @@
+﻿\section{Polynomial IOPs and the IOP-to-SNARK Paradigm}
+
+\subsection{Interactive proofs, IOPs, and polynomial IOPs}
+
+To use polynomial commitments inside proof systems, recall the following hierarchy:
+\begin{itemize}[leftmargin=2em]
+    \item an \textbf{interactive proof (IP)} exchanges a small number of messages;
+    \item an \textbf{interactive oracle proof (IOP)} allows the prover to send long oracles that the verifier only queries in a few places;
+    \item a \textbf{polynomial IOP} is an IOP in which the prover's main oracle messages are polynomials.
+\end{itemize}
+
+A polynomial IOP for circuit satisfiability has the form
+\[
+\Setup(C)\to (\pp,\vp),
+\]
+then the prover sends oracle access to a few polynomials $f_1,\dots,f_t$, the verifier samples random challenges $r_1,\dots,r_s$, and finally checks algebraic identities involving evaluations of those polynomials.
+
+The key point is that the verifier never needs to read entire witness polynomials. It suffices to query them at a few random points.
+
+\subsection{From a polynomial IOP to a SNARK}
+
+Suppose a polynomial IOP commits to $t$ polynomials and the verifier needs $q$ evaluation proofs. If we instantiate the commitment layer with a PCS, then:
+\begin{itemize}[leftmargin=2em]
+    \item the prover sends $t$ polynomial commitments;
+    \item each queried evaluation is accompanied by a PCS opening proof;
+    \item the IOP's verifier logic is run on the opened values.
+\end{itemize}
+
+If the IOP is public coin, the Fiat-Shamir transform removes interaction by deriving verifier challenges from a hash of the transcript \cite{FiatShamir1986}:
+\[
+ r_1 = H(C,x,\mathsf{com}_1,\dots),\qquad
+ r_2 = H(C,x,\mathsf{com}_1,\dots,r_1,\dots),\quad \text{etc.}
+\]
+
+This yields a non-interactive argument in the random oracle model. Non-interactive zero knowledge in the common-reference-string model originates with Blum, Feldman, and Micali \cite{BlumFeldmanMicali1988}; Fiat-Shamir is a different route, usually modeled through a random oracle.
+
+\subsection{Complexity bookkeeping}
+
+If the PCS commitment size is $\mathsf{pcsCom}$ and the opening size is $\mathsf{pcsOpen}$, then the resulting proof length is roughly
+\[
+ t\cdot \mathsf{pcsCom} + q\cdot \mathsf{pcsOpen}.
+\]
+The verifier's work is roughly
+\[
+ q\cdot \mathrm{time}(\mathsf{PCS\ verify}) + \mathrm{time}(\text{IOP verifier}),
+\]
+and the prover's work is roughly
+\[
+ t\cdot \mathrm{time}(\mathsf{Commit}) + q\cdot \mathrm{time}(\mathsf{Open}) + \mathrm{time}(\text{IOP prover}).
+\]
+
+This formula explains why the same Plonk IOP can lead to very different systems:
+\[
+\begin{array}{c|c|c}
+\text{PCS} & \text{Resulting flavor} & \text{Typical tradeoff}\\
+\hline
+\text{KZG \cite{KateZaveruchaGoldberg2010}} & \text{Aztec/JellyFish-style Plonk} & \text{short proofs, trusted setup}\\
+\text{IPA/Bulletproofs \cite{Bulletproofs2018}} & \text{Halo2-style Plonkish systems} & \text{transparent, slower verifier}\\
+\text{FRI \cite{BenSassonBentovHoreshRiabzev2018FRI}} & \text{Plonky2/STARK-like systems} & \text{transparent, hash-based, larger proofs}\\
+\end{array}
+\]
+
+

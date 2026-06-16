@@ -1,0 +1,513 @@
+﻿\section{Polynomial Commitment Schemes}
+
+\subsection{The master paradigm: proof system + commitments}
+
+The central construction paradigm is:
+\[
+\boxed{\text{Polynomial or oracle proof} + \text{succinct commitment scheme} \Longrightarrow \text{SNARK}.}
+\]
+
+The commitment scheme lets the prover bind itself to very large algebraic objects -- vectors, univariate polynomials, multilinear tables, execution traces -- using short commitments. The proof system then only needs to inspect a few locations and to argue that those local checks imply global correctness. This is exactly the architecture behind Plonk: the Plonk layer is a polynomial IOP, and the concrete SNARK depends on which PCS is used to compile the IOP.
+
+A useful separation of responsibilities is:
+\[
+\begin{array}{c|c}
+\text{Layer} & \text{Responsibility}\\
+\hline
+\text{Arithmetization / IOP} & \text{turn circuit correctness into polynomial identities}\\
+\text{PCS} & \text{commit to polynomials and prove evaluations succinctly}\\
+\text{Fiat-Shamir \cite{FiatShamir1986}} & \text{remove public-coin interaction}\\
+\end{array}
+\]
+
+\subsection{Ordinary commitments and functional commitments}
+
+A standard commitment scheme emulates a sealed envelope:
+\[
+\Commit(m;r)\to \mathsf{com},\qquad \Verify(m,r,\mathsf{com})\to\set{0,1}.
+\]
+It should be:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{binding:} after publishing the commitment, the committer cannot open it to two different messages;
+    \item \textbf{hiding:} the commitment leaks no useful information about the message.
+\end{itemize}
+
+A \emph{functional commitment} generalizes this from messages to functions $f\in \mathcal{F}$. The prover commits to a function and later proves evaluations of the committed function at chosen points. Formally, a functional commitment for a function family $\mathcal{F}$ consists of algorithms such as
+\[
+\Setup(\lambda,\mathcal{F})\to \pp,
+\]
+\[
+\Commit(\pp,f;r)\to \mathsf{com}_f,
+\]
+plus an opening/evaluation protocol proving that
+\[
+\mathsf{com}_f \text{ indeed commits to some } f\in \mathcal{F}
+\quad\text{and}\quad
+f(u)=v.
+\]
+
+\subsection{Polynomial commitment schemes}
+
+The most important functional commitments for SNARKs are \emph{polynomial commitment schemes} (PCSs). Fix a degree bound $d$. A PCS for univariate polynomials lets a prover:
+\begin{enumerate}[leftmargin=2em]
+    \item commit succinctly to $f(X)\in \F[X]$ of degree at most $d$;
+    \item later prove succinctly that $f(u)=v$ at a chosen point $u\in\F$.
+\end{enumerate}
+
+The syntax is:
+\[
+\mathsf{KeyGen}(\lambda,\mathcal{F})\to \pp,
+\]
+\[
+\mathsf{Commit}(\pp,f)\to \mathsf{com}_f,
+\]
+\[
+\mathsf{Eval}(\pp,f,u)\to (v,\pi),
+\]
+\[
+\mathsf{Verify}(\pp,\mathsf{com}_f,u,v,\pi)\to\set{0,1}.
+\]
+
+The ideal complexity target is:
+\[
+\text{opening proof size}=\mathrm{polylog}(d),
+\qquad
+\text{verification time}=\mathrm{polylog}(d),
+\]
+with KZG even achieving constant-size openings and constant-time verification in the pairing model \cite{KateZaveruchaGoldberg2010}.
+
+The knowledge-soundness formulation for a PCS says, informally, that if an adversary first outputs a commitment $\mathsf{com}_f$ and later successfully opens it at a verifier-chosen point, then an extractor can recover a polynomial $f\in\mathcal{F}$ to which the commitment is bound. This is the PCS-level analogue of SNARK knowledge soundness.
+
+\subsection{Algebraic notation for PCS constructions}
+
+The algebraic preliminaries above introduced the two notational worlds used below. KZG uses a pairing group and a structured reference string of hidden powers. Bulletproofs-style commitments use independent discrete-log bases and recursive inner-product folding. We will switch between multiplicative notation $g^a$ and additive elliptic-curve notation $aG$ when convenient; they encode the same exponent algebra.
+
+\subsection{KZG polynomial commitments}
+
+KZG is the canonical constant-size polynomial commitment scheme of Kate, Zaverucha, and Goldberg \cite{KateZaveruchaGoldberg2010}. It is pairing-based and uses a structured reference string containing powers of a hidden trapdoor $\tau$.
+
+\subsubsection{Setup and the hidden trapdoor}
+
+Let $\G$ be a cyclic group of prime order $p$ with generator $g$, and let
+\[
+    e:\G\times\G\to\GT
+\]
+be a bilinear pairing. For degree bound $d$, the setup samples a secret $\tau\in\F_p$ and publishes
+\[
+    \pp=(g,g^\tau,g^{\tau^2},\dots,g^{\tau^d}),
+\]
+then deletes $\tau$.
+
+In additive notation, one writes
+\[
+    H_0=G,
+    \qquad
+    H_1=\tau G,
+    \qquad
+    H_2=\tau^2G,
+    \qquad
+    \ldots,
+    \qquad
+    H_d=\tau^dG.
+\]
+The secret $\tau$ must not be known to the prover after setup. If the prover knows $\tau$, it can create fake openings by directly manipulating exponents at the hidden evaluation point.
+
+\subsubsection{Commitment in coefficient form}
+
+For
+\[
+    f(X)=f_0+f_1X+\cdots+f_dX^d,
+\]
+KZG defines
+\[
+    \mathsf{com}_f=g^{f(\tau)}
+    =g^{f_0}(g^\tau)^{f_1}\cdots (g^{\tau^d})^{f_d}.
+\]
+In additive notation:
+\[
+    \mathsf{com}_f=f(\tau)G=f_0H_0+f_1H_1+\cdots+f_dH_d.
+\]
+
+The commitment is deterministic and binding under the relevant pairing assumptions, but plain KZG is not hiding. If zero knowledge is needed, the commitment and opening protocol must be randomized by adding masking terms that are algebraically consistent with the opening equation.
+
+\subsubsection{Opening a point by quotienting}
+
+To prove that $f(u)=v$, define
+\[
+    q(X)=\frac{f(X)-v}{X-u}.
+\]
+This quotient is a polynomial precisely when $v=f(u)$, because $f(u)-v=0$ means $u$ is a root of $f(X)-v$.
+
+The proof is one group element:
+\[
+    \pi=g^{q(\tau)}.
+\]
+The verifier checks
+\[
+    e(\mathsf{com}_f/g^v,g)=e(g^{\tau-u},\pi).
+\]
+Indeed, if $v=f(u)$, then
+\[
+    f(X)-v=(X-u)q(X),
+\]
+so evaluating at the hidden point gives
+\[
+    f(\tau)-v=(\tau-u)q(\tau).
+\]
+The pairing check is exactly this equality in the exponent:
+\[
+    e(g^{f(\tau)-v},g)=e(g^{\tau-u},g^{q(\tau)})=e(g,g)^{(\tau-u)q(\tau)}.
+\]
+
+In additive notation, the same check is described as wanting
+\[
+    (\tau-u)\cdot \mathsf{com}_q \stackrel{?}{=} \mathsf{com}_f-vG,
+\]
+but because the verifier does not know $\tau$, the real implementation uses a pairing to test this hidden-scalar relation.
+
+\subsubsection{Why KZG is powerful}
+
+KZG has
+\[
+    \text{commitment size}=O(1),
+    \qquad
+    \text{opening proof size}=O(1),
+    \qquad
+    \text{verification}=O(1)\text{ pairings},
+\]
+while the prover's commitment and opening work are linear in the degree bound. This is why Plonk with KZG gives very small proofs and very fast verification.
+
+\subsection{Security of KZG}
+
+\subsubsection{Binding and the q-SBDH intuition}
+
+A typical computational binding argument uses a pairing-based assumption such as $q$-Strong Bilinear Diffie-Hellman (q-SBDH). Informally, given
+\[
+    (g,g^\tau,g^{\tau^2},\ldots,g^{\tau^d}),
+\]
+it should be hard to compute an expression that behaves like
+\[
+    e(g,g)^{1/(\tau-u)}
+\]
+for a new $u$.
+
+Suppose a malicious prover commits to $f$ but successfully opens at $u$ to $v^\star\neq f(u)$. Let
+\[
+    \delta=f(u)-v^\star\neq 0.
+\]
+The verification equation implies
+\[
+    e(g^{f(\tau)-v^\star},g)=e(g^{\tau-u},\pi^\star).
+\]
+Since
+\[
+    f(\tau)-v^\star=(\tau-u)q(\tau)+\delta,
+\]
+we can rearrange the equation to isolate a term behaving like
+\[
+    e(g,g)^{\delta/(\tau-u)}.
+\]
+Because $\delta\neq 0$, this gives a way to break the q-SBDH-style assumption. This is the algebraic reason a false opening should be infeasible.
+
+\subsubsection{Knowledge soundness and the knowledge-of-exponent assumption}
+
+Binding says one cannot open a commitment two different ways. Knowledge soundness asks for more: if a prover outputs a commitment, does it actually know the polynomial behind it?
+
+One way to enforce this in KZG is to include a second, independently scaled copy of the SRS. Setup samples $\alpha$ and publishes
+\[
+    g^\alpha,g^{\alpha\tau},g^{\alpha\tau^2},\ldots,g^{\alpha\tau^d}
+\]
+alongside the usual powers of $\tau$. A commitment then consists of
+\[
+    \mathsf{com}_f=g^{f(\tau)},
+    \qquad
+    \mathsf{com}'_f=g^{\alpha f(\tau)}.
+\]
+The verifier checks consistency by
+\[
+    e(\mathsf{com}_f,g^\alpha)=e(\mathsf{com}'_f,g).
+\]
+The knowledge-of-exponent assumption says that an adversary who can produce such consistent group elements must ``know'' the coefficients used to form them. In the generic group model, similar conclusions can be argued because the adversary can only compute formal linear combinations of the SRS elements.
+
+\subsubsection{Trusted setup ceremonies}
+
+A trusted setup is dangerous if one person learns $\tau$. A multi-party ceremony reduces this risk. Suppose a current SRS contains
+\[
+    g^\tau,g^{\tau^2},\ldots,g^{\tau^d}.
+\]
+A participant samples a secret $s$ and updates it to
+\[
+    (g^\tau)^s,
+    (g^{\tau^2})^{s^2},
+    \ldots,
+    (g^{\tau^d})^{s^d}
+    =g^{\tau s},g^{(\tau s)^2},\ldots,g^{(\tau s)^d}.
+\]
+The new trapdoor is $\tau s$. If at least one participant samples $s$ honestly and deletes it, nobody knows the final trapdoor. Pairing checks can verify that the updated SRS still consists of consecutive powers.
+
+\subsection{Operational optimizations for KZG}
+
+\subsubsection{Lagrange-basis commitments}
+
+If a polynomial is represented by coefficients, computing
+\[
+    \mathsf{com}_f=f_0H_0+\cdots+f_dH_d
+\]
+is already linear time. But in SNARKs, polynomials are often represented by evaluations
+\[
+    f(a_0),f(a_1),\ldots,f(a_d)
+\]
+on an FFT domain. Naively converting these values to coefficients costs $O(d\log d)$.
+
+Let $\lambda_i(X)$ be the Lagrange basis polynomial satisfying
+\[
+    \lambda_i(a_j)=
+    \begin{cases}
+    1,&i=j,\\
+    0,&i\neq j.
+    \end{cases}
+\]
+Then
+\[
+    f(\tau)=\sum_{i=0}^{d} f(a_i)\lambda_i(\tau).
+\]
+If the SRS is transformed into Lagrange form
+\[
+    \widehat H_i=\lambda_i(\tau)G,
+\]
+then
+\[
+    \mathsf{com}_f=f(a_0)\widehat H_0+\cdots+f(a_d)\widehat H_d,
+\]
+again in linear time from the evaluation representation.
+
+\subsubsection{Batch openings}
+
+For one polynomial opened at many points $u_1,\ldots,u_m$, interpolate the claimed values to a polynomial $h$ of degree less than $m$ satisfying
+\[
+    h(u_i)=f(u_i)\quad\text{for all }i.
+\]
+Then
+\[
+    f(X)-h(X)
+\]
+vanishes at all $u_i$, so
+\[
+    f(X)-h(X)=\left(\prod_{i=1}^{m}(X-u_i)\right)q(X).
+\]
+The proof is again $g^{q(\tau)}$. For multiple polynomials, one combines the individual quotient polynomials by a random linear combination so that many claims are reduced to one aggregate opening. Multivariate variants and related polynomial-commitment ideas also appear in the PST line of work on signatures of correct computation~\cite{PapamanthouShiTamassia2013}.
+
+\subsubsection{Vector commitments from PCS}
+
+A committed vector $(u_1,\dots,u_k)$ can be interpreted as the values of a polynomial $f$ on points $1,\dots,k$. Then a PCS becomes a vector commitment:
+\begin{enumerate}[leftmargin=2em]
+    \item interpolate $f$ with $f(i)=u_i$;
+    \item commit to $f$;
+    \item open entries by proving $f(i)=u_i$.
+\end{enumerate}
+In KZG, multiple vector entries can be opened using one group element, often shorter than a Merkle proof, at the cost of pairings and trusted setup \cite{KateZaveruchaGoldberg2010}.
+
+\subsection{Bulletproofs and IPA-style polynomial commitments}
+
+KZG is extremely succinct but needs a structured trusted setup. Bulletproofs give a transparent alternative based on Pedersen vector commitments and logarithmic inner-product arguments \cite{Pedersen1991,BootleCerulliChaidosGrothPetit2016,Bulletproofs2018}. The price is that verification is no longer constant time.
+
+\subsubsection{Pedersen vector commitments}
+
+Setup samples independent-looking group generators
+\[
+    \pp=(g_0,g_1,\ldots,g_d)\in \G^{d+1}.
+\]
+Here ``independent-looking'' means no efficient adversary knows discrete-log relations among them. For
+\[
+    f(X)=f_0+f_1X+\cdots+f_dX^d,
+\]
+define
+\[
+    \mathsf{com}_f=\prod_{i=0}^{d} g_i^{f_i}.
+\]
+This is a Pedersen-style vector commitment to the coefficient vector
+\[
+    \mathbf f=(f_0,\ldots,f_d).
+\]
+The setup is transparent because the generators can be derived by hashing public labels into the group; there is no hidden trapdoor like $\tau$.
+
+\subsubsection{Evaluation as an inner product}
+
+To open at $u$, observe that
+\[
+    f(u)=\sum_{i=0}^{d}f_i u^i
+    =\iprod{\mathbf f}{\mathbf u},
+\]
+where
+\[
+    \mathbf u=(1,u,u^2,\ldots,u^d).
+\]
+Thus a polynomial opening is an inner-product claim:
+\[
+    \iprod{\mathbf f}{\mathbf u}=v
+\]
+plus the claim that $\mathsf{com}_f$ really commits to $\mathbf f$.
+
+Bulletproofs recursively reduce the length of this vector relation. Each round halves the dimension while updating the commitment, the bases, and the claimed value. After $O(\log d)$ rounds, the prover reveals one scalar.
+
+\subsubsection{The degree-three folding example}
+
+A useful core example uses
+\[
+    f(X)=f_0+f_1X+f_2X^2+f_3X^3
+\]
+and
+\[
+    \mathsf{com}_f=g_0^{f_0}g_1^{f_1}g_2^{f_2}g_3^{f_3}.
+\]
+At point $u$,
+\[
+    v=f_0+f_1u+f_2u^2+f_3u^3.
+\]
+Split the coefficients into two halves:
+\[
+    \mathbf f_L=(f_0,f_1),
+    \qquad
+    \mathbf f_R=(f_2,f_3).
+\]
+Define
+\[
+    v_L=f_0+f_1u,
+    \qquad
+    v_R=f_2+f_3u.
+\]
+Then
+\[
+    v=v_L+u^2v_R.
+\]
+The prover sends cross commitments
+\[
+    L=g_2^{f_0}g_3^{f_1},
+    \qquad
+    R=g_0^{f_2}g_1^{f_3}.
+\]
+The verifier samples a random nonzero challenge $r\in\F_p^\times$. The folded coefficients are
+\[
+    f'_0=rf_0+f_2,
+    \qquad
+    f'_1=rf_1+f_3.
+\]
+The folded bases are
+\[
+    g'_0=g_0^{r^{-1}}g_2,
+    \qquad
+    g'_1=g_1^{r^{-1}}g_3.
+\]
+The folded claimed value is
+\[
+    v'=rv_L+v_R.
+\]
+Finally, the folded commitment is
+\[
+    \mathsf{com}'=L^r\cdot \mathsf{com}_f\cdot R^{r^{-1}}.
+\]
+
+\subsubsection{Algebraic correctness of one folding round}
+
+We now verify the key identity. Starting from
+\[
+    L^r\mathsf{com}_fR^{r^{-1}}
+    =(g_2^{f_0}g_3^{f_1})^r
+    (g_0^{f_0}g_1^{f_1}g_2^{f_2}g_3^{f_3})
+    (g_0^{f_2}g_1^{f_3})^{r^{-1}},
+\]
+collect the bases:
+\[
+\begin{aligned}
+\mathsf{com}'
+&=g_0^{f_0+r^{-1}f_2}g_1^{f_1+r^{-1}f_3}g_2^{rf_0+f_2}g_3^{rf_1+f_3}\\
+&=(g_0^{r^{-1}}g_2)^{rf_0+f_2}(g_1^{r^{-1}}g_3)^{rf_1+f_3}\\
+&=(g'_0)^{f'_0}(g'_1)^{f'_1}.
+\end{aligned}
+\]
+Thus the verifier can replace the old commitment to four coefficients by a new commitment to two folded coefficients.
+
+Similarly, the verifier checks the value relation
+\[
+    v\stackrel{?}{=}v_L+u^2v_R.
+\]
+Then it continues with the folded claim that
+\[
+    v'=f'_0+f'_1u.
+\]
+The random challenge $r$ prevents the prover from choosing inconsistent left and right halves that nevertheless pass the folded relation except with small probability.
+
+\subsubsection{The general recursive protocol}
+
+For length $n=2^m$, write
+\[
+    \mathbf f=(\mathbf f_L,\mathbf f_R),
+    \qquad
+    \mathbf g=(\mathbf g_L,\mathbf g_R).
+\]
+A round sends cross commitments analogous to $L$ and $R$, receives challenge $r$, and folds
+\[
+    \mathbf f' = r\mathbf f_L+\mathbf f_R,
+\]
+\[
+    \mathbf g' = \mathbf g_L^{r^{-1}}\circ \mathbf g_R,
+\]
+where $\circ$ denotes componentwise multiplication of bases. The evaluation vector is folded compatibly, or in the polynomial-specialized presentation the verifier separately checks the decomposition of $v$ into lower- and higher-degree parts at each round.
+
+After $m=\log_2 n$ rounds, only one scalar remains. The proof contains two group elements per round plus final scalar data, so
+\[
+    \text{proof size}=O(\log d).
+\]
+The protocol is public coin and can be made non-interactive using Fiat-Shamir \cite{FiatShamir1986}.
+
+This presentation isolates the commitment-folding algebra used by Bulletproofs-style polynomial openings. A full inner-product argument also folds the evaluation vector and includes the standard inner-product consistency checks; the point here is to expose the part of the protocol that explains the logarithmic opening size.
+
+\subsubsection{Complexity and tradeoffs}
+
+For Bulletproofs-style PCS:
+\[
+\begin{array}{c|c}
+\text{Operation} & \text{Cost}\\
+\hline
+\text{Key generation} & O(d)\text{ public generators, transparent}\\
+\text{Commitment} & O(d)\text{ group exponentiations}\\
+\text{Evaluation proof} & O(d)\text{ prover work}\\
+\text{Proof size} & O(\log d)\text{ group elements}\\
+\text{Verifier time} & O(d)\text{ in the basic scheme}
+\end{array}
+\]
+The essential tradeoff is:
+\[
+\begin{array}{c}
+\text{KZG: trusted setup, constant opening}\\[0.2em]
+\text{vs.}\\[0.2em]
+\text{Bulletproofs: transparent setup, logarithmic opening}.
+\end{array}
+\]
+This is why Halo-style systems can avoid trusted setup by using an IPA/Bulletproofs PCS, but the verifier is typically slower than in KZG-based Plonk.
+
+\subsection{Other pairing- and discrete-log-based PCS families}
+
+Several important schemes sit around KZG and Bulletproofs:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Hyrax} arranges coefficients as a two-dimensional matrix, improving verifier time to roughly $O(\sqrt d)$ while using discrete-log assumptions \cite{WahbyTziallaShelatThalerWalfish2018}.
+    \item \textbf{Dory} uses pairings and inner pairing-product arguments to delegate structured verifier work to the prover, obtaining $O(\log d)$ proof size and $O(\log d)$ verifier time \cite{Lee2021Dory}.
+    \item \textbf{DARK} uses groups of unknown order to obtain logarithmic proof size and verifier time without a conventional trusted setup \cite{BunzFischSzepieniec2020DARK}.
+    \item \textbf{FRI/code-based PCS} replace group exponentiations with hashing and low-degree testing \cite{BenSassonBentovHoreshRiabzev2018FRI}. They are transparent and plausibly post-quantum, but proofs are much larger.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{3.0cm}}
+\toprule
+Scheme & Setup & Proof size & Verifier & Main assumption \\
+\midrule
+KZG & trusted & $O(1)$ & $O(1)$ & pairings, q-SBDH-style assumptions \\
+Bulletproofs / IPA & transparent & $O(\log d)$ & $O(d)$ & discrete logarithm \\
+Hyrax \cite{WahbyTziallaShelatThalerWalfish2018} & transparent & $O(\sqrt d)$ & $O(\sqrt d)$ & discrete logarithm \\
+Dory \cite{Lee2021Dory} & transparent & $O(\log d)$ & $O(\log d)$ & pairings \\
+DARK \cite{BunzFischSzepieniec2020DARK} & transparent & $O(\log d)$ & $O(\log d)$ & unknown-order groups \\
+FRI / code-based & transparent & larger, often polylogarithmic & hash and query heavy & collision-resistant hashes, codes \\
+\bottomrule
+\end{tabular}
+\end{center}
+

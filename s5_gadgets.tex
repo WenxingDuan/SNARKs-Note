@@ -1,0 +1,325 @@
+﻿\section{Univariate Polynomial IOP Gadgets}
+
+\subsection{Polynomial identity testing: the algebraic engine}
+
+The starting point is the Schwartz--Zippel--DeMillo--Lipton lemma \cite{DeMilloLipton1978,Schwartz1980,Zippel1979}.
+
+\begin{lemma}[Schwartz-Zippel]
+Let $f\in \F[X]$ be a nonzero polynomial of degree at most $d$. If $r\leftarrow \F$ is uniform, then
+\[
+\Pr[f(r)=0]\le \frac{d}{|\F|}.
+\]
+The same statement holds for multivariate polynomials when $d$ is replaced by the total degree.
+\end{lemma}
+
+This turns polynomial equality into random-point testing:
+\[
+    f=g \implies f(r)=g(r),
+\]
+and conversely
+\[
+    f(r)=g(r) \text{ at a random }r
+\]
+strongly suggests $f=g$ provided the field is large relative to the degree. In common cryptographic parameter regimes one often has $p\approx 2^{256}$ and $d\le 2^{40}$, so $d/p$ is negligible.
+
+In a compiled proof system, the verifier does not query raw polynomials. Instead, the prover opens committed polynomials at $r$ using the PCS. The IOP verifier checks the algebraic equality on opened values; the PCS verifier checks that these values are consistent with the earlier commitments.
+
+\subsection{Using vanishing polynomials in IOP gadgets}
+
+The algebraic preliminaries introduced the vanishing polynomial
+\[
+    Z_\Omega(X)=\prod_{a\in\Omega}(X-a).
+\]
+The gadgets below repeatedly use the same template: to prove that a polynomial $F$ vanishes on a domain $\Omega$, the prover supplies a quotient $q$ satisfying
+\[
+    F(X)=q(X)Z_\Omega(X).
+\]
+For multiplicative subgroup domains this is especially efficient because $Z_\Omega(X)=X^k-1$. For smaller subdomains, such as the set of gate-start positions in a simplified Plonk trace, one should use the actual vanishing polynomial of that subdomain; it need not be of the form $X^k-1$.
+
+\subsection{ZeroTest}
+
+\textbf{Goal.} Given a committed polynomial $f$, prove
+\[
+    f(a)=0\qquad\forall a\in\Omega.
+\]
+
+The prover computes
+\[
+    q(X)=\frac{f(X)}{Z_\Omega(X)}.
+\]
+The verifier samples $r\leftarrow\F$ and asks for openings of $f(r)$ and $q(r)$, then checks
+\[
+    f(r)\stackrel{?}{=}q(r)Z_\Omega(r).
+\]
+
+Completeness is immediate. For soundness, if $f$ is not divisible by $Z_\Omega$, then
+\[
+    f(X)-q(X)Z_\Omega(X)
+\]
+is a nonzero polynomial of controlled degree. By Schwartz-Zippel, it vanishes at a random $r$ with probability at most degree$/|\F|$.
+
+In compiled SNARK form, $q$ is also committed, and the openings at $r$ are verified by the PCS.
+
+\subsection{SumCheck on a subgroup}
+
+\textbf{Goal.} Given a committed polynomial $f$, prove
+\[
+    \sum_{a\in\Omega}f(a)=0.
+\]
+For univariate subgroup domains, a convenient way is to construct an accumulator polynomial $s$ satisfying
+\[
+    s(\omega^0)=f(\omega^0),
+\]
+\[
+    s(\omega^i)=\sum_{j=0}^{i} f(\omega^j)
+    \qquad (1\le i\le k-1).
+\]
+Then
+\[
+    \sum_{a\in\Omega} f(a)=0
+\]
+is equivalent to
+\[
+    s(\omega^{k-1})=0
+\]
+plus the local recurrence
+\[
+    s(\omega X)-s(X)-f(\omega X)=0
+    \qquad\text{for all }X\in\Omega.
+\]
+The recurrence is checked by a ZeroTest on the polynomial
+\[
+    s(\omega X)-s(X)-f(\omega X).
+\]
+This is the additive analogue of the ProductCheck below.
+
+\subsection{ProductCheck}
+
+ProductCheck is one of the most important univariate gadgets in Plonk-style systems. It converts a global multiplicative statement into a low-degree recurrence.
+
+\subsubsection*{The problem statement}
+
+Let
+\[
+    \Omega=\set{1,\omega,\omega^2,\ldots,\omega^{k-1}}
+\]
+be a multiplicative subgroup. Given a committed polynomial $f$, prove
+\[
+    \prod_{a\in\Omega} f(a)=1.
+\]
+Directly multiplying all $k$ values would be expensive for the verifier. Instead, the prover commits to a running product polynomial.
+
+\subsubsection*{The running product polynomial}
+
+Define $t\in\polydeg{k}$ by its values on $\Omega$:
+\[
+    t(1)=f(1),
+\]
+\[
+    t(\omega^s)=\prod_{i=0}^{s}f(\omega^i)
+    \qquad s=1,\ldots,k-1.
+\]
+Thus
+\[
+    t(\omega)=f(1)f(\omega),
+\]
+\[
+    t(\omega^2)=f(1)f(\omega)f(\omega^2),
+\]
+and finally
+\[
+    t(\omega^{k-1})=\prod_{a\in\Omega}f(a).
+\]
+Therefore the claimed product equals $1$ if
+\[
+    t(\omega^{k-1})=1.
+\]
+
+The local recurrence is
+\[
+    t(\omega X)=t(X)f(\omega X)
+    \qquad\forall X\in\Omega.
+\]
+The indexing is worth noticing: the recurrence multiplies by $f(\omega X)$, not $f(X)$, because $t(\omega^s)$ includes the value at $\omega^s$.
+
+\subsubsection*{The cyclic last step}
+
+The final point in the subgroup is $X=\omega^{k-1}$. Since $\omega^k=1$, the recurrence at this last point reads
+\[
+    t(1)=t(\omega^{k-1})f(1).
+\]
+At first this may look circular, because $t(1)$ is also the first running-product value. But this is exactly why the boundary condition is chosen as $t(\omega^{k-1})=1$. Under that condition, the last recurrence becomes
+\[
+    f(1)=1\cdot f(1),
+\]
+so the cyclic wrap-around is consistent. This small indexing point is one of the most common sources of confusion when first learning ProductCheck.
+
+\subsubsection*{Turning the recurrence into a ZeroTest}
+
+Define
+\[
+    t_1(X)=t(\omega X)-t(X)f(\omega X).
+\]
+If the recurrence is correct, then
+\[
+    t_1(X)=0\qquad \forall X\in\Omega.
+\]
+Hence $Z_\Omega(X)=X^k-1$ divides $t_1(X)$, so the prover can form
+\[
+    q(X)=\frac{t_1(X)}{X^k-1}.
+\]
+The verifier samples $r\leftarrow\F$ and asks for openings of
+\[
+    t(\omega^{k-1}),\quad t(r),\quad t(\omega r),\quad q(r),\quad f(\omega r).
+\]
+It accepts if
+\[
+    t(\omega^{k-1})\stackrel{?}{=}1
+\]
+and
+\[
+    t(\omega r)-t(r)f(\omega r)
+    \stackrel{?}{=}
+    q(r)(r^k-1).
+\]
+
+This unoptimized ProductCheck protocol uses two new committed polynomials, $t$ and $q$, and five evaluations. The verifier's non-PCS arithmetic is essentially computing $r^k-1$, which costs $O(\log k)$ field operations by repeated squaring.
+
+\subsubsection*{Soundness intuition}
+
+If the prover lies about the product, then at least one of two things must happen:
+\begin{enumerate}[leftmargin=2em]
+    \item the boundary value $t(\omega^{k-1})$ is not $1$; or
+    \item $t$ does not honestly encode the running product, in which case $t_1$ fails to vanish on $\Omega$.
+\end{enumerate}
+The second case is caught by the ZeroTest. Since the final check is a random polynomial identity test, the cheating probability is bounded by the relevant degree divided by $|\F|$.
+
+\subsection{Rational ProductCheck}
+
+The same idea proves product identities for rational functions. Suppose the goal is
+\[
+    \prod_{a\in\Omega}\frac{f(a)}{g(a)}=1,
+\]
+assuming all denominators are nonzero on $\Omega$.
+
+Define
+\[
+    t(1)=\frac{f(1)}{g(1)},
+\]
+\[
+    t(\omega^s)=\prod_{i=0}^{s}\frac{f(\omega^i)}{g(\omega^i)}
+    \qquad s=1,\ldots,k-1.
+\]
+Then the boundary condition is again
+\[
+    t(\omega^{k-1})=1,
+\]
+and the recurrence becomes
+\[
+    t(\omega X)g(\omega X)=t(X)f(\omega X)
+    \qquad\forall X\in\Omega.
+\]
+Define
+\[
+    t_1(X)=t(\omega X)g(\omega X)-t(X)f(\omega X).
+\]
+Then run ZeroTest on $t_1$ over $\Omega$.
+
+This rational version is the bridge from ProductCheck to permutation and wiring arguments.
+
+In randomized permutation arguments, the denominators depend on verifier challenges. A small set of ``bad'' challenges may make a denominator vanish. Protocol descriptions usually exclude those challenges or absorb their probability into the usual Schwartz--Zippel-style soundness error.
+
+\subsection{PermutationCheck via randomized products}
+
+\textbf{Goal.} Given committed polynomials $f$ and $g$, prove that the two lists
+\[
+    (f(1),f(\omega),\ldots,f(\omega^{k-1}))
+\]
+and
+\[
+    (g(1),g(\omega),\ldots,g(\omega^{k-1}))
+\]
+are the same multiset.
+
+Define the characteristic polynomials of the two multisets:
+\[
+    \widehat f(Z)=\prod_{a\in\Omega}(Z-f(a)),
+\]
+\[
+    \widehat g(Z)=\prod_{a\in\Omega}(Z-g(a)).
+\]
+The two lists are permutations of each other iff
+\[
+    \widehat f(Z)=\widehat g(Z).
+\]
+By Schwartz-Zippel, it suffices to choose random $r\leftarrow\F$ and prove
+\[
+    \widehat f(r)=\widehat g(r).
+\]
+Equivalently,
+\[
+    \prod_{a\in\Omega}\frac{r-f(a)}{r-g(a)}=1.
+\]
+This is exactly a rational ProductCheck with
+\[
+    F(a)=r-f(a),
+    \qquad
+    G(a)=r-g(a).
+\]
+This technique is often called Lipton's trick: equality of large multisets is reduced to equality of two random products. Closely related product and shuffle arguments appear in efficient zero-knowledge shuffle proofs \cite{BayerGroth2012}.
+
+\subsection{Prescribed permutation checks}
+
+The previous gadget proves that two lists are equal up to some unknown permutation. Plonk wiring constraints need more: the permutation is prescribed by the circuit.
+
+Let
+\[
+    W:\Omega\to\Omega
+\]
+be a known permutation. In protocols it is often encoded by its own low-degree interpolation polynomial on $\Omega$, but that polynomial should not be interpreted as a cheap function to compose inside $g(W(X))$. Given committed polynomials $f$ and $g$, the goal is
+\[
+    f(y)=g(W(y))\qquad\forall y\in\Omega.
+\]
+A direct ZeroTest of
+\[
+    f(X)-g(W(X))
+\]
+is not efficient, because the composition $g(W(X))$ can have degree about $k^2$ even when $f$, $g$, and $W$ individually have degree $O(k)$. That would destroy the linear/quasilinear prover goal.
+
+The trick is to encode pairs. Consider the two multisets
+\[
+    \set{(W(a),f(a)):a\in\Omega}
+\]
+and
+\[
+    \set{(a,g(a)):a\in\Omega}.
+\]
+The reason for introducing pairs is conceptual: the first coordinate identifies a wire slot, while the second coordinate records the value stored in that slot. Equality of the pair multisets says that every destination slot receives exactly the value it should receive.
+
+If these multisets are equal, then the value attached to $W(a)$ on the left matches the value attached to the same point on the right, which implies
+\[
+    f(a)=g(W(a))
+\]
+for every $a\in\Omega$.
+
+To test equality of pair-multisets, define bivariate polynomials
+\[
+    \widehat F(X,Y)=\prod_{a\in\Omega}\bigl(X-YW(a)-f(a)\bigr),
+\]
+\[
+    \widehat G(X,Y)=\prod_{a\in\Omega}\bigl(X-Ya-g(a)\bigr).
+\]
+Because $\F[X,Y]$ is a unique factorization domain, equality of these products of linear factors is equivalent to equality of the corresponding multisets of pairs.
+
+The verifier samples random $r,s\leftarrow\F$ and asks the prover to prove
+\[
+    \widehat F(r,s)=\widehat G(r,s).
+\]
+This is equivalent to the rational product identity
+\[
+    \prod_{a\in\Omega}
+    \frac{r-sW(a)-f(a)}{r-sa-g(a)}
+    =1.
+\]
+Again, a rational ProductCheck proves the identity without explicitly constructing the degree-$k$ bivariate products.
+

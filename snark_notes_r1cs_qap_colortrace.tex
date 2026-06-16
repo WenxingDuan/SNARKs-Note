@@ -87,6 +87,27 @@
 \maketitle
 \thispagestyle{empty}
 
+%% ============================================================
+%%  RESTRUCTURING PLAN
+%% ============================================================
+\begin{tcolorbox}[colback=yellow!15!white, colframe=orange!80!black,
+  boxrule=0.8pt, arc=2mm, title=\textbf{TODO: Restructure around construction routes}]
+\small
+
+Reorganize the document so that each major SNARK construction route is its own section, preceded by shared foundations and followed by a comparison. The known routes are:
+
+\begin{enumerate}
+  \item \textbf{LIP/pairing route} --- R1CS $\to$ QAP $\to$ NILP $\to$ pairings $\Rightarrow$ \textbf{Groth16}. Circuit-specific trusted setup. Currently in §8 + §12 but split and incomplete (NILP step is missing).
+  \item \textbf{Univariate polynomial IOP route} --- Plonkish arithmetization $\to$ polynomial IOP gadgets $\to$ PCS $\Rightarrow$ \textbf{Plonk} (KZG), \textbf{Halo2} (IPA). Universal setup. Currently in §5--7, well-developed.
+  \item \textbf{Multilinear/sumcheck route} --- multilinear extensions $\to$ sumcheck protocol $\to$ multilinear PCS $\Rightarrow$ \textbf{Spartan}, \textbf{HyperPlonk}, \textbf{Lasso/Jolt}. Transparent or universal.
+  \item \textbf{FRI/hash-based route} --- AIR arithmetization $\to$ FRI proximity test $\Rightarrow$ \textbf{STARKs}. Fully transparent, post-quantum. Currently mentioned in taxonomy only.
+  \item \textbf{Folding/accumulation route} --- relaxed R1CS $\to$ recursive folding $\Rightarrow$ \textbf{Nova}, \textbf{HyperNova}, \textbf{ProtoStar}. Not yet in the document.
+\end{enumerate}
+
+\medskip
+\textbf{Target structure:} §1 Foundations (one pass: definitions, algebra, historical timeline) $\;\to\;$ §2 Commitment schemes (shared prerequisite) $\;\to\;$ §3--7 one section per route $\;\to\;$ §8 Comparison. Move §12 (R1CS/QAP example) into the LIP route section. Deduplicate repeated definitions of SNARK and ZK.
+\end{tcolorbox}
+
 \begin{tcolorbox}
 \textbf{Purpose.} These notes are a living, modular set of mathematical notes on SNARKs. They develop definitions, algebraic tools, polynomial commitments, polynomial IOP gadgets, and concrete protocol constructions in a cumulative way, so that later topics can be added without changing the overall structure.
 \end{tcolorbox}

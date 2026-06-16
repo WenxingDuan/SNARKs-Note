@@ -1,0 +1,186 @@
+﻿\section{The Plonk Polynomial IOP}
+\label{sec:plonk-iop}
+
+\subsection{A pedagogical one-column Plonk arithmetization}
+
+This section presents a pedagogical one-column version of Plonk. Real Plonkish systems usually use several witness columns and row-wise gate identities; the one-column presentation below is meant to make the algebraic dependencies visible before introducing production-level notation.
+
+Plonk can be presented as a polynomial IOP for arithmetic circuits. Consider the circuit
+\[
+    (x_1+x_2)(x_2+w_1).
+\]
+With input values
+\[
+    x_1=5,
+    \qquad
+    x_2=6,
+    \qquad
+    w_1=1,
+\]
+the three gates are:
+\[
+\begin{array}{c|ccc}
+\text{Gate} & \text{left input} & \text{right input} & \text{output}\\
+\hline
+0 & 5 & 6 & 11\\
+1 & 6 & 1 & 7\\
+2 & 11 & 7 & 77
+\end{array}
+\]
+Gate $0$ and gate $1$ are additions. Gate $2$ is a multiplication.
+
+The simplified encoding uses one trace polynomial $T$. Let $|C|$ be the number of gates and $|I|=|I_x|+|I_w|$ the total number of public and witness inputs. Define
+\[
+    d=3|C|+|I|.
+\]
+Choose a subgroup
+\[
+    \Omega=\set{1,\omega,\omega^2,\ldots,\omega^{d-1}}.
+\]
+The trace polynomial $T\in\polydeg{d}$ is defined by:
+\[
+    T(\omega^{-j})=\text{input number }j
+    \qquad j=1,\ldots,|I|,
+\]
+and, for gate $\ell=0,\ldots,|C|-1$,
+\[
+    T(\omega^{3\ell})=\text{left input of gate }\ell,
+\]
+\[
+    T(\omega^{3\ell+1})=\text{right input of gate }\ell,
+\]
+\[
+    T(\omega^{3\ell+2})=\text{output of gate }\ell.
+\]
+Since these values are specified on a domain, the prover can interpolate $T$ by FFT/NTT methods.
+
+\subsection{The four conditions that make a valid trace}
+
+The prover commits to $T$. The verifier must be convinced of four facts.
+
+\subsubsection*{(1) Public input correctness}
+
+Let $v(X)$ be the low-degree polynomial interpolated by the verifier from the public inputs. Let
+\[
+    \Omega_{\mathrm{inp}}=\set{\omega^{-1},\ldots,\omega^{-|I_x|}}.
+\]
+The public input check is
+\[
+    T(y)-v(y)=0
+    \qquad\forall y\in\Omega_{\mathrm{inp}}.
+\]
+This is a ZeroTest over the input subset.
+
+\subsubsection*{(2) Gate correctness}
+
+Introduce a selector polynomial $S(X)$ such that, at each gate-start point $y=\omega^{3\ell}$,
+\[
+S(y)=
+\begin{cases}
+1,&\text{if gate }\ell\text{ is addition},\\
+0,&\text{if gate }\ell\text{ is multiplication}.
+\end{cases}
+\]
+Let
+\[
+    \Omega_{\mathrm{gates}}=\set{1,\omega^3,\omega^6,\ldots,\omega^{3(|C|-1)}}.
+\]
+For every $y\in\Omega_{\mathrm{gates}}$, the gate equation is
+\[
+S(y)\bigl(T(y)+T(\omega y)\bigr)
++\bigl(1-S(y)\bigr)T(y)T(\omega y)
+-T(\omega^2y)=0.
+\]
+If $S(y)=1$, this says left plus right equals output. If $S(y)=0$, it says left times right equals output.
+
+\subsubsection*{(3) Wiring correctness}
+
+The circuit imposes copy constraints. For example, the same value $x_2=6$ may appear as a public input, as the right input of gate $0$, and as the left input of gate $1$. These equalities are encoded by a permutation
+\[
+    W:\Omega\to\Omega
+\]
+whose cycles connect slots that must hold the same value. The logical wiring condition is
+\[
+    T(y)=T(W(y))
+    \qquad\forall y\in\Omega.
+\]
+It is proved using the prescribed permutation check above, not by directly composing $T(W(X))$.
+
+\subsubsection*{(4) Output correctness}
+
+If the convention is that the circuit output should be zero, then the final gate output position is checked as
+\[
+    T(\omega^{3|C|-1})=0.
+\]
+If the desired output is a public value $y_{\mathrm{out}}$, one can either check
+\[
+    T(\omega^{3|C|-1})=y_{\mathrm{out}}
+\]
+directly by a PCS opening, or append a final subtraction gate so that the zero-output convention applies.
+
+\subsection{The complete Plonk Poly-IOP}
+
+The setup for the simplified IOP outputs the circuit-dependent polynomials
+\[
+    S,\quad W,
+\]
+where $S$ encodes gate types and $W$ encodes wiring. The prover constructs and commits to $T$. It then proves:
+\begin{enumerate}[leftmargin=2em]
+    \item $T(y)-v(y)=0$ on $\Omega_{\mathrm{inp}}$;
+    \item the gate polynomial
+    \[
+    S(X)(T(X)+T(\omega X))+(1-S(X))T(X)T(\omega X)-T(\omega^2X)
+    \]
+    vanishes on $\Omega_{\mathrm{gates}}$;
+    \item wiring correctness by the prescribed permutation ProductCheck;
+    \item output correctness at the final output point.
+\end{enumerate}
+
+In the full Plonk analysis, the resulting Poly-IOP is complete and knowledge sound under a degree-to-field-size condition such as $7|C|/p$ being negligible \cite{GabizonWilliamsonCiobotaru2019}. The exact constant is less important than the principle: all possible cheating strategies are reduced to nonzero polynomial identities that would have to vanish at random points.
+
+When this public-coin IOP is compiled with a PCS and Fiat-Shamir, the result is a SNARK \cite{FiatShamir1986}.
+
+\subsection{Why this is efficient}
+
+The design is efficient for three mutually reinforcing reasons:
+\begin{enumerate}[leftmargin=2em]
+    \item the whole witness is compressed into a few low-degree polynomials;
+    \item global constraints are reduced to polynomial identities on subgroups;
+    \item those identities are checked at a few random points, not everywhere.
+\end{enumerate}
+
+The heavy lifting is shifted to fast polynomial arithmetic (FFT/NTT, interpolation, quotient computation) and succinct opening proofs.
+
+\subsection{From simplified Plonk to modern Plonkish systems}
+
+The simplified one-column trace above is only a teaching model. Real Plonkish systems are more expressive.
+
+\begin{itemize}[leftmargin=2em]
+    \item They usually use multiple witness columns rather than a single trace polynomial.
+    \item They allow \textbf{custom gates}, so one row can enforce an identity more general than a pure $+$ or $\times$ gate.
+    \item They use \textbf{lookup arguments}, for example Plookup~\cite{GabizonWilliamson2020Plookup}, to prove that values belong to fixed tables.
+    \item They often use a \textbf{grand product polynomial} to implement permutation/copy constraints more compactly.
+    \item They can be paired with KZG, IPA/Bulletproofs, or FRI to obtain different concrete SNARK systems.
+\end{itemize}
+
+A representative custom gate has the form
+\[
+    v(\omega y)+w(y)t(y)-t(\omega y)=0
+    \qquad\forall y\in\Omega_{\mathrm{gates}}.
+\]
+Such identities are simply added to the gate-check polynomial.
+
+HyperPlonk-style systems replace the univariate subgroup domain by the Boolean hypercube $\set{0,1}^t$ and replaces univariate ZeroTests by multilinear SumCheck protocols. The motivation is to reduce prover time by avoiding some expensive univariate quotient computations.
+
+\subsection{Choice of PCS determines the concrete SNARK}
+
+One of the deepest practical lessons is that the same underlying Plonk IOP can be combined with different commitment layers:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Plonk + KZG} gives short proofs and very fast verification, but needs a trusted setup \cite{KateZaveruchaGoldberg2010,GabizonWilliamsonCiobotaru2019}.
+    \item \textbf{Plonk + IPA/Bulletproof-style PCS} gives transparency but slower verification \cite{Bulletproofs2018}.
+    \item \textbf{Plonk + FRI} gives transparency and plausible post-quantum security, but larger proofs \cite{BenSassonBentovHoreshRiabzev2018FRI}.
+\end{itemize}
+
+This explains why ``Plonk'' in practice is best thought of as an \emph{arithmetization / IOP layer}, not as one single monolithic proving system.
+
+

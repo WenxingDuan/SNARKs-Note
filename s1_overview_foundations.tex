@@ -1,0 +1,185 @@
+﻿\section{Overview and Big Picture}
+
+A preprocessing SNARK is a proof system for statements of the form
+\[
+\exists w \in \F^m \text{ such that } C(x,w)=0,
+\]
+where $x$ is public, $w$ is secret, and $C$ is an arithmetic circuit over a finite field. The promise of a SNARK is that the proof is \emph{short}, verification is \emph{fast}, and in the zero-knowledge case the proof reveals essentially nothing beyond the truth of the statement.
+
+The current organization follows the standard architecture of modern SNARKs. We first set up the proof-system definitions and the algebraic model of computation. We then study polynomial commitments as the cryptographic layer used to bind prover messages. Finally, we develop the univariate polynomial-IOP gadgets that underlie Plonk-style arithmetization.
+
+A useful slogan is:
+\[
+\boxed{
+\begin{array}{c}
+\text{Succinct proof for general circuits}\\[0.2em]
+=\text{ algebraic arithmetization }+\text{ low-query proof }+\text{ succinct commitments}.
+\end{array}}
+\]
+
+\section{Foundations of SNARKs}
+
+\subsection{Why SNARKs exist}
+
+Suppose a prover claims to know a huge witness $w$ making a statement true. The trivial proof system is to send $w$ and let the verifier check $C(x,w)=0$. This is unsatisfactory for three separate reasons:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Privacy:} the witness may be secret.
+    \item \textbf{Communication:} the witness may be much larger than the statement.
+    \item \textbf{Verification cost:} recomputing $C(x,w)$ may be expensive.
+\end{enumerate}
+
+SNARKs address all three. The terminology sits in the lineage of succinct arguments and zero-knowledge proofs, beginning with foundational work on zero knowledge, non-interactive zero knowledge, and efficient arguments \cite{GoldwasserMicaliRackoff1989,BlumFeldmanMicali1988,Kilian1992}. In modern applications this gives:
+\begin{itemize}[leftmargin=2em]
+    \item private payments and private smart-contract logic,
+    \item validity proofs for rollups and bridges,
+    \item verifiable outsourced computation,
+    \item privacy-preserving compliance and attestations.
+\end{itemize}
+
+\subsection{Arithmetic circuits and NP relations}
+
+These notes model computation by \emph{arithmetic circuits}. Fix a prime field $\F=\F_p$. An arithmetic circuit is a directed acyclic graph whose internal nodes are labeled by field operations such as $+$, $-$, and $\times$, and whose inputs are field elements.
+
+A circuit with public input $x\in \F^n$ and witness $w\in \F^m$ computes a polynomial-time decidable relation
+\[
+R_C = \set{(x,w) : C(x,w)=0}.
+\]
+
+This is the SNARK-friendly analog of an NP relation. The verifier wants evidence that
+\[
+\exists w \text{ such that } (x,w)\in R_C.
+\]
+
+\begin{example}[Circuits as algebraic checks]
+Two standard examples are:
+\begin{align*}
+C_{\mathrm{hash}}(h,m) &= h - \mathrm{SHA256}(m),\\
+C_{\mathrm{sig}}(pk,m,\sigma) &= 0 \quad \text{iff } \sigma \text{ verifies under } pk.
+\end{align*}
+In practice these are compiled into large arithmetic circuits over some field compatible with the chosen proving system.
+\end{example}
+
+\subsection{Preprocessing argument systems}
+
+A \emph{preprocessing argument system} for a fixed circuit $C$ consists of three algorithms:
+\[
+S(C) \to (\pp,\vp),\qquad P(\pp,x,w) \to \pi,\qquad V(\vp,x,\pi)\to\set{0,1}.
+\]
+
+The idea is that $S$ compresses the circuit into verification/proving parameters once and for all. Then many proofs for that circuit can be produced and verified.
+
+Preprocessing is important because verification should depend only polylogarithmically on the circuit size, not linearly. Without preprocessing, the verifier would usually need too much information about the whole circuit to stay succinct.
+
+\subsection{Completeness, knowledge soundness, and succinctness}
+
+A central security notion for SNARKs is not merely ordinary soundness but \emph{knowledge soundness}. The reason is subtle: we do not merely want ``false statements are rejected.'' We want ``if a prover convinces the verifier, then the prover \emph{knows} a valid witness.''
+
+\begin{definition}[Completeness]
+A SNARK is complete if for every valid pair $(x,w)$ with $C(x,w)=0$,
+\[
+\Pr\bracket{V\paren{\vp,x,P(\pp,x,w)}=1}=1
+\]
+or at least overwhelmingly close to $1$.
+\end{definition}
+
+\begin{definition}[Knowledge soundness]
+A preprocessing argument system $(S,P,V)$ for $C$ is \emph{knowledge sound} if for every probabilistic polynomial-time adversary $\Adv=(\Adv_0,\Adv_1)$ there exists a probabilistic polynomial-time extractor $E$ such that, whenever
+\[
+(\pp,\vp)\leftarrow S(C),\qquad (x,\mathsf{state})\leftarrow \Adv_0(\pp),\qquad \pi\leftarrow \Adv_1(\pp,x,\mathsf{state}),
+\]
+we have
+\[
+\Pr\bracket{C(x,w)=0: w\leftarrow E^{\Adv_1}(\pp,x,\mathsf{state})}
+\ge
+\Pr\bracket{V(\vp,x,\pi)=1}-\epsilon(\lambda),
+\]
+for negligible $\epsilon$.
+\end{definition}
+
+This definition packages the informal sentence:
+\begin{quote}
+If the verifier accepts with noticeable probability, then an extractor can recover a witness with almost the same probability.
+\end{quote}
+
+\begin{remark}[Why this is stronger than ordinary soundness]
+Ordinary soundness only says that a false statement cannot be accepted. Knowledge soundness additionally says that a convincing prover must encode enough information for an extractor to recover a witness. This is exactly the right notion for ``proof of knowledge.''
+\end{remark}
+
+Succinctness means both communication and verification scale sublinearly, ideally polylogarithmically, in the circuit size.
+
+\begin{definition}[SNARK]
+A SNARK is a preprocessing argument system that is complete, knowledge sound, and succinct. Succinctness informally means
+\[
+\abs{\pi}=\mathrm{poly}(\lambda,\log |C|,\log |x|)
+\quad\text{and}\quad
+\mathrm{time}(V)=\mathrm{poly}(\lambda,|x|,\log |C|).
+\]
+\end{definition}
+
+\subsection{Zero knowledge}
+
+Zero knowledge was introduced as a way to formalize proofs that reveal no additional knowledge beyond validity of the statement \cite{GoldwasserMicaliRackoff1989}. It is naturally expressed in the standard simulation-based way.
+
+\begin{definition}[Zero knowledge, simplified]
+A proof system is zero knowledge if there exists an efficient simulator $\Sim$ such that for every valid public statement $x$, the simulated transcript is computationally indistinguishable from the real one:
+\[
+(C,\pp,\vp,x,\pi_{\mathrm{real}}) \approx_c (C,\pp,\vp,x,\pi_{\mathrm{sim}}),
+\]
+where
+\[
+(\pp,\vp)\leftarrow S(C),\qquad \pi_{\mathrm{real}}\leftarrow P(\pp,x,w),\qquad (\pp,\vp,\pi_{\mathrm{sim}})\leftarrow \Sim(C,x).
+\]
+\end{definition}
+
+The key intuition is:
+\begin{quote}
+If the verifier can generate a fake proof transcript by itself, then seeing the real proof did not teach it anything extra about the witness.
+\end{quote}
+
+In modern systems, zero knowledge is usually achieved by adding random masking polynomials or random blinds to the committed witness polynomials.
+
+\subsection{Trusted setup, universal setup, and transparency}
+
+It is useful to distinguish three setup models.
+
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Circuit-specific trusted setup.} The setup depends on the exact circuit. Groth16 is the canonical example \cite{Groth2016}.
+    \item \textbf{Universal (often updatable) trusted setup.} One setup supports many circuits up to some size bound. Sonic and Plonk are canonical examples of this direction \cite{MallerBoweKohlweissMeiklejohn2019,GabizonWilliamsonCiobotaru2019}.
+    \item \textbf{Transparent setup.} No trapdoor secret exists at all. STARKs, IPA/Bulletproof-style systems, and many code-based systems are transparent \cite{Bulletproofs2018,BenSassonBentovHoreshRiabzev2018STARK}.
+\end{enumerate}
+
+The reason trapdoors matter is simple: if the prover learns the hidden setup secret, it may be able to forge proofs for false statements. Ceremony protocols are therefore used for trusted-setup systems: security survives if at least one participant honestly destroys its randomness.
+
+\subsection{A quick taxonomy of modern proof systems}
+
+The exact performance numbers of proof systems change over time, but the qualitative tradeoffs are robust.
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}p{2.9cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{3.0cm}}
+\toprule
+System family & Main strength & Main cost & Setup model \\
+\midrule
+Groth16 \cite{Groth2016} & extremely short proofs, very fast verifier & circuit-specific trusted setup & trusted, per circuit \\
+Plonk / Sonic-style systems \cite{GabizonWilliamsonCiobotaru2019,MallerBoweKohlweissMeiklejohn2019} & universal setup, short proofs, flexible arithmetization & prover slower than Groth16, still not post-quantum & trusted, universal \\
+IPA / Bulletproof-style \cite{Bulletproofs2018} & transparent, logarithmic proofs & verifier slower & transparent \\
+STARK / FRI-based \cite{BenSassonBentovHoreshRiabzev2018STARK,BenSassonBentovHoreshRiabzev2018FRI} & transparent, plausibly post-quantum, very scalable prover & large proofs & transparent \\
+DARK / Dory / related \cite{Lee2021Dory,BunzFischSzepieniec2020DARK} & transparent logarithmic-size algebraic commitments & heavier algebra, more exotic assumptions/models & transparent \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{From programs to proof systems}
+
+The software-stack picture becomes much clearer once one separates front-end programming languages from algebraic constraint systems. Real proving systems do not begin from hand-written field equations. Instead, the workflow is roughly:
+\[
+\text{high-level program} \longrightarrow \text{constraint IR} \longrightarrow \text{prover backend}.
+\]
+
+Typical high-level languages and DSLs include Circom, ZoKrates, Cairo, Leo, Noir, and others. Earlier systems also studied direct program-execution SNARKs for C and machine-code-style architectures, such as TinyRAM and von Neumann models~\cite{BenSassonChiesaGenkinTromerVirza2013,BenSassonChiesaTromerVirza2014}. The constraint intermediate representations include:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{R1CS} (Rank-1 Constraint Systems),
+    \item \textbf{Plonkish} traces and gate identities,
+    \item \textbf{AIR} (used in many STARK systems),
+    \item \textbf{PIL} or other polynomial-identity languages.
+\end{itemize}
+

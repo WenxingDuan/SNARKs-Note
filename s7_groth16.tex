@@ -1,0 +1,180 @@
+﻿\section{Groth16 and Pairing-Based SNARKs}
+\label{sec:groth16}
+
+The previous chapters developed the Plonk route to SNARKs: computation is represented as a trace, local constraints become polynomial identities, and wiring is enforced by a permutation argument. Groth16 follows a different but equally central route. It starts from a rank-1 constraint system (R1CS), converts that system into a quadratic arithmetic program (QAP), and then uses pairings to prove the resulting QAP relation succinctly \cite{GennaroGentryParnoRaykova2013,ParnoHowellGentryRaykova2013,Groth2016}.
+
+This chapter stops at the arithmetization boundary:
+\[
+\text{algebraic circuit}\quad\longrightarrow\quad\text{R1CS}\quad\longrightarrow\quad\text{QAP}.
+\]
+The later pairing-based proving and verification equations of Groth16 are intentionally postponed.
+
+\subsection{The arithmetization pipeline}
+
+A high-level program is not directly suitable for a succinct proof. It must first be converted into algebraic statements over a field. For the Groth16 route, the pipeline is:
+\[
+\boxed{
+\text{arithmetic circuit}
+\longrightarrow
+\text{flattened gates}
+\longrightarrow
+\text{R1CS matrices}
+\longrightarrow
+\text{QAP divisibility}
+}
+\]
+The conceptual transformation is:
+\[
+\begin{array}{c}
+\text{the circuit is evaluated correctly}\\[0.2em]
+\Longleftrightarrow\quad \text{all rank-1 constraints are satisfied}\\[0.2em]
+\Longleftrightarrow\quad P_z(r)=0\text{ for every constraint point }r\in H\\[0.2em]
+\Longleftrightarrow\quad Z_H(X)\mid P_z(X).
+\end{array}
+\]
+The last equivalence is the same algebraic principle that appeared in ZeroTest: if a polynomial is zero on a domain $H$, then it is divisible by the vanishing polynomial
+\[
+    Z_H(X)=\prod_{r\in H}(X-r).
+\]
+
+\subsection{From algebraic circuits to R1CS}
+
+An arithmetic circuit over a field $\F$ consists of wires carrying field elements and gates computing additions or multiplications. A satisfying assignment contains public inputs, private witness values, and auxiliary wire values introduced during computation. We write these values as a single vector
+\[
+    z=(z_0,z_1,\ldots,z_{n-1})\in\F^n,
+\]
+where $z_0=1$ is reserved for constants. Appendix~\ref{app:r1cs-qap-example} gives a color-coded example in which variable colors track columns and constraint colors track rows, so that each R1CS matrix entry can be followed into its corresponding QAP term.
+
+The first step is \emph{flattening}: every complex expression is decomposed into elementary equations whose left and right sides are linear forms, except for one multiplication between two linear forms. A general R1CS constraint has the shape
+\begin{tcolorbox}
+\[
+    (\text{linear form in }z)\cdot(\text{linear form in }z)
+    =
+    (\text{linear form in }z).
+\]
+\end{tcolorbox}
+Thus an addition gate such as
+\[
+    v=x_1+x_2
+\]
+can be written as
+\[
+    (x_1+x_2)\cdot 1=v,
+\]
+while a multiplication gate such as
+\[
+    y=v_1v_2
+\]
+is already of the form
+\[
+    v_1\cdot v_2=y.
+\]
+
+Formally, an R1CS instance with $m$ constraints and $n$ variables consists of three matrices
+\[
+    A,B,C\in\F^{m\times n}.
+\]
+The $i$th row of each matrix defines a linear form:
+\[
+    A_i\cdot z,
+    \qquad
+    B_i\cdot z,
+    \qquad
+    C_i\cdot z.
+\]
+The $i$th constraint is
+\[
+    (A_i\cdot z)(B_i\cdot z)=C_i\cdot z.
+\]
+Equivalently, all constraints can be written compactly as
+\[
+    (Az)\circ(Bz)=Cz,
+\]
+where $\circ$ denotes component-wise multiplication, not matrix multiplication. Each row is therefore one rank-1 multiplicative equation: the product of two linear forms equals a third linear form.
+
+This representation is powerful because it separates the \emph{shape of the computation}, stored in $A,B,C$, from the \emph{specific execution}, stored in $z$. The public statement usually fixes some coordinates of $z$, while the prover supplies the private witness and auxiliary wire values.
+
+\subsection{From R1CS to QAP}
+
+R1CS is still a list of $m$ separate equations. A verifier who directly checks all rows must inspect the constraints one by one. The QAP transformation compresses the list into a single polynomial divisibility statement.
+
+Choose a constraint domain
+\[
+    H=\{r_1,r_2,\ldots,r_m\}\subset\F
+\]
+of $m$ distinct field elements, one point for each R1CS row. Its vanishing polynomial is
+\[
+    Z_H(X)=\prod_{i=1}^{m}(X-r_i).
+\]
+For every variable index $j\in\{0,\ldots,n-1\}$, interpolate three polynomials
+\[
+    A_j(X),\qquad B_j(X),\qquad C_j(X)
+\]
+from the $j$th columns of the R1CS matrices:
+\[
+    A_j(r_i)=A_{i,j},
+    \qquad
+    B_j(r_i)=B_{i,j},
+    \qquad
+    C_j(r_i)=C_{i,j}
+    \qquad
+    \text{for all }i.
+\]
+In words, the $j$th column of $A$ becomes the polynomial $A_j(X)$, the $j$th column of $B$ becomes $B_j(X)$, and the $j$th column of $C$ becomes $C_j(X)$.
+
+Given an assignment $z=(z_0,\ldots,z_{n-1})$, combine these column polynomials using the assignment values as coefficients:
+\[
+    A_z(X)=\sum_{j=0}^{n-1}z_jA_j(X),
+    \qquad
+    B_z(X)=\sum_{j=0}^{n-1}z_jB_j(X),
+    \qquad
+    C_z(X)=\sum_{j=0}^{n-1}z_jC_j(X).
+\]
+At the constraint point $r_i$, interpolation gives
+\[
+    A_z(r_i)=\sum_j z_jA_j(r_i)=\sum_j z_jA_{i,j}=A_i\cdot z,
+\]
+with analogous equalities for $B_z(r_i)$ and $C_z(r_i)$. Therefore the $i$th R1CS constraint is equivalent to
+\[
+    A_z(r_i)B_z(r_i)-C_z(r_i)=0.
+\]
+Define the QAP numerator polynomial
+\[
+    P_z(X)=A_z(X)B_z(X)-C_z(X).
+\]
+Then the entire R1CS system is satisfied if and only if
+\[
+    P_z(r_i)=0\qquad\text{for every }r_i\in H.
+\]
+By the vanishing-polynomial criterion, this is equivalent to
+\begin{tcolorbox}
+\[
+    Z_H(X)\mid P_z(X),
+\]
+or, equivalently, there exists a quotient polynomial $h_z(X)$ such that
+\[
+    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+\]
+\end{tcolorbox}
+This is the QAP relation. It is the exact algebraic statement that later pairing-based SNARKs prove succinctly.
+
+\subsection{Where Groth16 begins}
+
+At the QAP stage, computation correctness has become the claim that the prover knows an assignment $z$ and a quotient polynomial $h_z$ satisfying
+\[
+    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+\]
+Groth16 begins by evaluating this relation at a hidden setup point $\tau$, encoding the resulting values in a structured reference string, and using pairings to check the multiplicative relation without revealing the witness. The proving and verification equations, public-input separation, toxic-waste structure, and zero-knowledge blinding terms will be developed in a later iteration.
+
+\section{Synthesis and Outlook}
+
+The conceptual chain across the preceding sections is now visible:
+\begin{enumerate}[leftmargin=2em]
+    \item Start with the goal of proving knowledge of a witness for a circuit.
+    \item Encode the circuit and witness algebraically.
+    \item Reduce global correctness to a handful of polynomial identities.
+    \item Commit to the polynomials succinctly.
+    \item Check those identities at random points and make the interaction non-interactive via Fiat-Shamir.
+\end{enumerate}
+
+At this point one can already understand the architecture of a large fraction of modern proof systems. Later topics can explore different instantiations of the same template: different arithmetizations, different commitment schemes, different recursion techniques, and different implementation tradeoffs. The R1CS/QAP route developed above is the arithmetization layer for Groth16. The next technical layer to be developed is the pairing-based proof protocol itself: the structured reference string, the prover's group elements, the verifier's pairing equation, and the zero-knowledge blinding terms~\cite{Groth2016}.

@@ -1,0 +1,339 @@
+﻿\section{A Complete Plonk Example over \texorpdfstring{$\F_{97}$}{F97}}
+
+This appendix gives a complete Plonk-style proof sketch at the arithmetization and IOP-gadget level. It includes the ProductCheck inside the wiring/permutation argument. It is not yet a production Plonk transcript with all batching, blinding, and Fiat-Shamir challenge ordering spelled out.
+
+\subsection{Field and subgroup}
+
+Work over the prime field
+\[
+    \F_{97}.
+\]
+We use a subgroup of size $12$ because the trace occupies $3|C|+|I|=12$ slots. The element
+\[
+    \omega=6
+\]
+has order $12$ in $\F_{97}^\times$. Hence
+\[
+    \Omega=\set{1,\omega,\omega^2,\ldots,\omega^{11}}
+\]
+with actual values
+\[
+    \Omega=\set{1,6,36,22,35,16,96,91,61,75,62,81}.
+\]
+The vanishing polynomial is
+\[
+    Z_\Omega(X)=X^{12}-1.
+\]
+
+\subsection{Circuit and statement}
+
+Take the three-gate computation
+\[
+    (x_1+x_2)(x_2+w_1).
+\]
+Let
+\[
+    x_1=5,
+    \qquad
+    x_2=6,
+    \qquad
+    w_1=1.
+\]
+Then
+\[
+    (5+6)(6+1)=11\cdot7=77.
+\]
+The computation trace is:
+\[
+\begin{array}{c|ccc|c}
+\toprule
+\text{Gate} & L & R & O & \text{Type}\\
+\midrule
+0 & 5 & 6 & 11 & +\\
+1 & 6 & 1 & 7 & +\\
+2 & 11 & 7 & 77 & \times\\
+\bottomrule
+\end{array}
+\]
+
+\subsection{Trace polynomial}
+
+We place public and witness inputs at negative powers and gate wires at consecutive triples:
+\[
+\begin{array}{c|c|c|c}
+\toprule
+\text{Exponent }i & \omega^i & \text{Meaning} & T(\omega^i)\\
+\midrule
+11 & 81 & x_1 & 5\\
+10 & 62 & x_2 & 6\\
+9 & 75 & w_1 & 1\\
+0 & 1 & \text{gate 0 left} & 5\\
+1 & 6 & \text{gate 0 right} & 6\\
+2 & 36 & \text{gate 0 output} & 11\\
+3 & 22 & \text{gate 1 left} & 6\\
+4 & 35 & \text{gate 1 right} & 1\\
+5 & 16 & \text{gate 1 output} & 7\\
+6 & 96 & \text{gate 2 left} & 11\\
+7 & 91 & \text{gate 2 right} & 7\\
+8 & 61 & \text{gate 2 output} & 77\\
+\bottomrule
+\end{array}
+\]
+
+There is a unique polynomial of degree at most $11$ interpolating these values. It is
+\[
+\begin{aligned}
+T(X)={}&20+85X+22X^2+20X^3+80X^4+10X^5\\
+&+47X^6+38X^7+27X^8+70X^9+6X^{10}+65X^{11}
+\pmod{97}.
+\end{aligned}
+\]
+
+\subsection{Public input check}
+
+The verifier knows $x_1=5$ and $x_2=6$. Define $v(X)$ by
+\[
+    v(\omega^{11})=5,
+    \qquad
+    v(\omega^{10})=6.
+\]
+The interpolating degree-$1$ polynomial is
+\[
+    v(X)=45+51X\pmod{97}.
+\]
+The public input condition is
+\[
+    T(y)-v(y)=0
+    \qquad
+    \forall y\in\Omega_{\mathrm{inp}}=\set{\omega^{11},\omega^{10}}.
+\]
+Indeed,
+\[
+    T(81)=5=v(81),
+    \qquad
+    T(62)=6=v(62).
+\]
+This would be proved by ZeroTest on the two-point input domain.
+
+\subsection{Gate check}
+
+The gate-start domain is
+\[
+    \Omega_{\mathrm{gates}}=\set{\omega^0,\omega^3,\omega^6}=\set{1,22,96}.
+\]
+Define a selector polynomial $S$ by
+\[
+    S(1)=1,
+    \qquad
+    S(22)=1,
+    \qquad
+    S(96)=0.
+\]
+The degree-$2$ interpolant is
+\[
+    S(X)=68+49X+78X^2\pmod{97}.
+\]
+The gate polynomial is
+\[
+    G_{\mathrm{gate}}(X)
+    =S(X)(T(X)+T(\omega X))+(1-S(X))T(X)T(\omega X)-T(\omega^2X).
+\]
+We need
+\[
+    G_{\mathrm{gate}}(y)=0
+    \qquad\forall y\in\Omega_{\mathrm{gates}}.
+\]
+Concretely:
+\[
+\begin{array}{c|c}
+\toprule
+\text{Gate-start }y & \text{Check}\\
+\midrule
+1 & 5+6-11=0\\
+22=\omega^3 & 6+1-7=0\\
+96=\omega^6 & 11\cdot7-77=0\\
+\bottomrule
+\end{array}
+\]
+This condition is also proved by a ZeroTest, now over $\Omega_{\mathrm{gates}}$.
+
+\subsection{Wiring as a prescribed permutation}
+
+The copy constraints are:
+\[
+T(\omega^{10})=T(\omega^1)=T(\omega^3)=6,
+\]
+\[
+T(\omega^{11})=T(\omega^0)=5,
+\]
+\[
+T(\omega^2)=T(\omega^6)=11,
+\]
+\[
+T(\omega^9)=T(\omega^4)=1.
+\]
+The permutation $W:\Omega\to\Omega$ acts by cycles
+\[
+    (\omega^{10}\ \omega^1\ \omega^3)
+    (\omega^{11}\ \omega^0)
+    (\omega^2\ \omega^6)
+    (\omega^9\ \omega^4),
+\]
+with $\omega^5,\omega^7,\omega^8$ fixed. The logical wiring condition is
+\[
+    T(y)=T(W(y))
+    \qquad\forall y\in\Omega.
+\]
+
+Interpolating $W$ on $\Omega$ gives one polynomial representative
+\[
+\begin{aligned}
+W(X)={}&53X+38X^2+50X^3+8X^4+81X^5+43X^6\\
+&+80X^7+94X^8+44X^9+21X^{10}+54X^{11}
+\pmod{97}.
+\end{aligned}
+\]
+A direct check of $T(X)-T(W(X))$ would involve a high-degree composition: the polynomial $W(X)$ is merely an interpolation of the wiring table, not a cheap function to compose into $T$. Plonk therefore uses a prescribed permutation ProductCheck.
+
+\subsection{ProductCheck inside the wiring argument}
+
+The prescribed permutation check samples random challenges $\rho,\sigma\in\F_{97}$ and proves
+\[
+    \prod_{a\in\Omega}
+    \frac{\rho-\sigma W(a)-T(a)}{\rho-\sigma a-T(a)}=1.
+\]
+For this concrete example choose
+\[
+    \rho=17,
+    \qquad
+    \sigma=3.
+\]
+Define
+\[
+    F(a)=\rho-\sigma W(a)-T(a),
+    \qquad
+    G(a)=\rho-\sigma a-T(a),
+\]
+and
+\[
+    h(a)=\frac{F(a)}{G(a)}.
+\]
+The following table lists the domain order and the running product values
+\[
+    t(\omega^s)=\prod_{i=0}^{s}h(\omega^i).
+\]
+
+\begin{center}
+\small
+\begin{tabular}{c|c|c|c|c|c}
+\toprule
+$i$ & $a=\omega^i$ & $T(a)$ & $W(a)$ & $h(a)$ & $t(a)$\\
+\midrule
+0 & 1 & 5 & 81 & 39 & 39\\
+1 & 6 & 6 & 22 & 91 & 57\\
+2 & 36 & 11 & 96 & 37 & 72\\
+3 & 22 & 6 & 62 & 12 & 88\\
+4 & 35 & 1 & 75 & 83 & 29\\
+5 & 16 & 7 & 16 & 1 & 29\\
+6 & 96 & 11 & 36 & 21 & 27\\
+7 & 91 & 7 & 91 & 1 & 27\\
+8 & 61 & 77 & 61 & 1 & 27\\
+9 & 75 & 1 & 35 & 90 & 5\\
+10 & 62 & 6 & 6 & 66 & 39\\
+11 & 81 & 5 & 1 & 5 & 1\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The final value is
+\[
+    t(\omega^{11})=1,
+\]
+so the product identity holds. Notice that the entries with $h(a)=1$ correspond to fixed points of the wiring permutation. The interpolated running product polynomial is
+\[
+\begin{aligned}
+t(X)={}&69+25X+27X^2+18X^3+79X^4+64X^5\\
+&+83X^6+17X^7+13X^8+88X^9+53X^{10}+85X^{11}
+\pmod{97}.
+\end{aligned}
+\]
+
+Now the prover interpolates the running product polynomial $t(X)$ from the values above. The recurrence to be checked is the rational ProductCheck recurrence:
+\[
+    t(\omega X)G(\omega X)=t(X)F(\omega X)
+    \qquad\forall X\in\Omega.
+\]
+Equivalently, define
+\[
+    R(X)=t(\omega X)G(\omega X)-t(X)F(\omega X).
+\]
+Then
+\[
+    R(X)=0\qquad\forall X\in\Omega,
+\]
+so
+\[
+    q(X)=\frac{R(X)}{X^{12}-1}
+\]
+is a polynomial. A verifier checks this quotient relation at one random point $z$.
+
+For example, take
+\[
+    z=2.
+\]
+The interpolated polynomials give
+\[
+    R(2)=25,
+    \qquad
+    z^{12}-1=2^{12}-1\equiv21\pmod{97}.
+\]
+Since
+\[
+    21^{-1}\equiv 37\pmod{97},
+\]
+we get
+\[
+    q(2)=R(2)(z^{12}-1)^{-1}=25\cdot37\equiv52\pmod{97}.
+\]
+Thus the verifier's random-point check is
+\[
+    R(2)
+    \stackrel{?}{=}
+    q(2)(2^{12}-1),
+\]
+and indeed
+\[
+    52\cdot21=1092\equiv25\pmod{97}.
+\]
+This is the ProductCheck embedded inside the Plonk wiring proof. The table proves the randomized pair-multiset equality. By the prescribed permutation lemma, this implies $T(a)=T(W(a))$ for every wire slot $a\in\Omega$, except with the usual random-challenge soundness error.
+
+\subsection{Output check}
+
+In this toy trace, the final output slot is
+\[
+    T(\omega^8)=77.
+\]
+If the statement is ``the circuit output is $77$,'' the verifier asks for a direct opening proving
+\[
+    T(\omega^8)=77.
+\]
+If the proof system uses a zero-output convention, one appends a final linear gate computing
+\[
+    T(\omega^8)-77
+\]
+and checks that the new final output is zero.
+
+\subsection{The final proof obligations}
+
+The complete Plonk proof for this toy circuit consists of the following obligations:
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Trace commitment:} the prover commits to $T$.
+    \item \textbf{Public inputs:} $T-v$ vanishes on $\Omega_{\mathrm{inp}}$.
+    \item \textbf{Gate semantics:} $G_{\mathrm{gate}}$ vanishes on $\Omega_{\mathrm{gates}}$.
+    \item \textbf{Wiring:} the prescribed permutation relation is proved by the rational ProductCheck above.
+    \item \textbf{Output:} the final output equals $77$ or equals zero after a final adjustment gate.
+\end{enumerate}
+
+Each obligation is a low-degree polynomial identity checked at one or a few random points. A PCS such as KZG or Bulletproofs turns these oracle checks into a succinct argument \cite{KateZaveruchaGoldberg2010,Bulletproofs2018}. This is the complete architecture of Plonk in miniature.
+
+

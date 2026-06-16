@@ -1,0 +1,115 @@
+﻿\section{Algebraic Preliminaries}
+\label{sec:algebra-preliminaries}
+
+\subsection{Finite fields}
+
+Most SNARKs arithmetize computation over a finite field. In these notes we usually write
+\[
+    \F=\F_p
+\]
+for a prime field. Elements are integers modulo a prime $p$, and every nonzero element has a multiplicative inverse. The field structure lets arithmetic circuits use addition and multiplication as primitive operations, while the finiteness of the field makes random evaluation arguments meaningful.
+
+The field must be large compared with the degrees of the polynomials that appear in the proof. A typical soundness statement has the form
+\[
+    \Pr[\text{bad polynomial identity passes}]\le \frac{D}{p},
+\]
+where $D$ is a degree bound. Cryptographic systems therefore choose $p$ large enough that this ratio is negligible.
+
+\subsection{Univariate polynomials, roots, and degree}
+
+A univariate polynomial over $\F$ is
+\[
+    f(X)=f_0+f_1X+\cdots+f_dX^d.
+\]
+The largest $i$ with $f_i\neq 0$ is the degree. The elementary fact used throughout these notes is:
+\[
+    \text{a nonzero polynomial of degree }D\text{ has at most }D\text{ roots.}
+\]
+This is the algebraic reason that checking an identity at a random point can certify a global identity with high probability.
+
+\subsection{Evaluation and interpolation}
+
+A degree-$<k$ polynomial is uniquely determined by its values at $k$ distinct field points. Given distinct points $a_0,\ldots,a_{k-1}$ and values $y_0,\ldots,y_{k-1}$, the interpolating polynomial is
+\[
+    f(X)=\sum_{i=0}^{k-1} y_i\lambda_i(X),
+\]
+where the Lagrange basis polynomial is
+\[
+    \lambda_i(X)=\prod_{j\neq i}\frac{X-a_j}{a_i-a_j}.
+\]
+Thus SNARKs can freely switch between coefficient representations and evaluation representations. Plonkish systems strongly prefer the evaluation viewpoint: witness values are placed on a structured domain, then interpolated into low-degree polynomials.
+
+\subsection{Roots of unity and subgroup domains}
+
+Let $\omega\in\F$ be a primitive $k$-th root of unity. Then
+\[
+    \omega^k=1,
+    \qquad
+    \omega^i\neq 1\quad\text{for }0<i<k.
+\]
+The associated multiplicative subgroup is
+\[
+    \Omega=\{1,\omega,\omega^2,\ldots,\omega^{k-1}\}.
+\]
+Such domains are central because shifting by $\omega$ moves to the next row:
+\[
+    X\mapsto \omega X.
+\]
+This is exactly what ProductCheck and Plonk gate checks need: local relations between neighboring positions become polynomial identities involving $f(X)$, $f(\omega X)$, and sometimes $f(\omega^2X)$.
+
+\subsection{Vanishing polynomials}
+
+For a finite set $\Omega\subseteq\F$, the vanishing polynomial is
+\[
+    Z_\Omega(X)=\prod_{a\in\Omega}(X-a).
+\]
+A polynomial $f$ vanishes on $\Omega$ iff $Z_\Omega$ divides $f$:
+\[
+    f(a)=0\ \forall a\in\Omega
+    \quad\Longleftrightarrow\quad
+    f(X)=q(X)Z_\Omega(X).
+\]
+For a multiplicative subgroup $\Omega=\{1,\omega,\ldots,\omega^{k-1}\}$,
+\[
+    Z_\Omega(X)=X^k-1.
+\]
+This special form is why subgroup domains are so efficient: the verifier can evaluate $Z_\Omega(r)=r^k-1$ in $O(\log k)$ field operations.
+
+For arbitrary subsets, the same theory works with
+\[
+    Z_\Omega(X)=\prod_{a\in\Omega}(X-a),
+\]
+but the verifier no longer gets the simple $X^k-1$ formula unless the subset is itself a subgroup or has some other special structure.
+
+\subsection{Polynomial identity testing}
+
+The DeMillo--Lipton--Schwartz--Zippel principle says that a nonzero polynomial of total degree $D$ over a field cannot vanish too often \cite{DeMilloLipton1978,Schwartz1980,Zippel1979}. In the univariate case,
+\[
+    \Pr_{r\leftarrow \F}[f(r)=0]\le \frac{\deg f}{|\F|}
+\]
+for nonzero $f$. More generally, for a nonzero multivariate polynomial $F$ of total degree $D$,
+\[
+    \Pr_{\mathbf r\leftarrow S^m}[F(\mathbf r)=0]\le \frac{D}{|S|}.
+\]
+This principle is the soundness engine behind polynomial equality testing, ZeroTest, ProductCheck, and permutation arguments.
+
+\subsection{Cyclic groups, discrete logarithms, and pairings}
+
+Polynomial commitments are cryptographic objects, so they require group assumptions in addition to field algebra. Let $\G=\langle g\rangle$ be a cyclic group of prime order $p$. In multiplicative notation, every group element has the form $g^a$ for some $a\in\F_p$, and
+\[
+    g^a\cdot g^b = g^{a+b},
+    \qquad
+    (g^a)^b=g^{ab}.
+\]
+The discrete logarithm problem is: given $g$ and $h=g^x$, find $x$. Pedersen commitments and Bulletproofs-style commitments rely on the hardness of recovering or manipulating hidden linear relations among such exponents \cite{Pedersen1991,Bulletproofs2018}.
+
+Many pairing-based SNARKs also use a bilinear map
+\[
+    e:\G\times\G\to\GT
+\]
+with
+\[
+    e(g^a,g^b)=e(g,g)^{ab}.
+\]
+Pairings let a verifier test multiplicative relations among hidden exponents. A classical cryptographic example is the BLS short-signature construction~\cite{BonehLynnShacham2001}. KZG and Groth16 both rely on this ability, though in different ways \cite{KateZaveruchaGoldberg2010,Groth2016}.
+

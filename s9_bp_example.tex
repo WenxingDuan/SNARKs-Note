@@ -1,0 +1,197 @@
+﻿\section{A Complete Bulletproofs-Style Polynomial Opening Example}
+
+This appendix gives a concrete exponent-level example of the Bulletproofs / IPA-style folding idea \cite{Bulletproofs2018}. The example is not cryptographically secure because the field is tiny; it is meant to make the algebra visible.
+
+\subsection{The polynomial opening claim}
+
+Work over
+\[
+    \F_{97}.
+\]
+Let
+\[
+    f(X)=2+4X+X^2+3X^3.
+\]
+The coefficient vector is
+\[
+    \mathbf f=(2,4,1,3).
+\]
+Let the evaluation point be
+\[
+    u=5.
+\]
+Then
+\[
+\begin{aligned}
+    v=f(5)
+    &=2+4\cdot 5+5^2+3\cdot 5^3\\
+    &=2+20+25+375\\
+    &=422\\
+    &\equiv 34\pmod{97}.
+\end{aligned}
+\]
+Equivalently,
+\[
+    v=\iprod{(2,4,1,3)}{(1,5,25,28)}=34,
+\]
+since $5^3=125\equiv 28\pmod{97}$.
+
+\subsection{Pedersen vector commitment}
+
+Let
+\[
+    \pp=(g_0,g_1,g_2,g_3)
+\]
+be four independent group bases in a cyclic group of order $97$. The commitment is
+\[
+    \mathsf{com}_f=g_0^2g_1^4g_2^1g_3^3.
+\]
+The prover wants to prove that this committed vector evaluates to $34$ at $u=5$.
+
+\subsection{First folding round}
+
+Split the polynomial into low and high halves:
+\[
+    \mathbf f_L=(2,4),
+    \qquad
+    \mathbf f_R=(1,3).
+\]
+Compute
+\[
+    v_L=2+4\cdot 5=22,
+\]
+\[
+    v_R=1+3\cdot 5=16.
+\]
+Then
+\[
+    v_L+u^2v_R=22+25\cdot 16=422\equiv 34=v.
+\]
+
+The prover sends
+\[
+    L_1=g_2^2g_3^4,
+    \qquad
+    R_1=g_0^1g_1^3.
+\]
+Let the verifier challenge be
+\[
+    r_1=7,
+    \qquad
+    r_1^{-1}=14\pmod{97}.
+\]
+Fold the coefficients:
+\[
+    f'_0=r_1f_0+f_2=7\cdot 2+1=15,
+\]
+\[
+    f'_1=r_1f_1+f_3=7\cdot 4+3=31.
+\]
+So
+\[
+    \mathbf f'=(15,31).
+\]
+Fold the bases:
+\[
+    g'_0=g_0^{14}g_2,
+    \qquad
+    g'_1=g_1^{14}g_3.
+\]
+Fold the value:
+\[
+    v'=r_1v_L+v_R=7\cdot22+16=170\equiv 73\pmod{97}.
+\]
+Indeed,
+\[
+    f'(5)=15+31\cdot5=170\equiv 73.
+\]
+
+Now check the commitment update:
+\[
+    \mathsf{com}'=L_1^{7}\mathsf{com}_fR_1^{14}.
+\]
+Expanding:
+\[
+\begin{aligned}
+\mathsf{com}'
+&=(g_2^2g_3^4)^7(g_0^2g_1^4g_2g_3^3)(g_0g_1^3)^{14}\\
+&=g_0^{2+14}g_1^{4+42}g_2^{14+1}g_3^{28+3}\\
+&=g_0^{16}g_1^{46}g_2^{15}g_3^{31}.
+\end{aligned}
+\]
+On the other hand,
+\[
+\begin{aligned}
+(g'_0)^{15}(g'_1)^{31}
+&=(g_0^{14}g_2)^{15}(g_1^{14}g_3)^{31}\\
+&=g_0^{210}g_2^{15}g_1^{434}g_3^{31}\\
+&=g_0^{16}g_1^{46}g_2^{15}g_3^{31}\pmod{97},
+\end{aligned}
+\]
+because $210\equiv16$ and $434\equiv46$ modulo $97$. Thus the folded commitment is correct.
+
+\subsection{Second folding round and final scalar}
+
+The remaining vector has length $2$. Split
+\[
+    \mathbf f'=(15,31)
+\]
+into left scalar $15$ and right scalar $31$. The verifier first checks the value decomposition
+\[
+    v'=15+u\cdot31=15+5\cdot31=170\equiv73.
+\]
+The prover sends
+\[
+    L_2=(g'_1)^{15},
+    \qquad
+    R_2=(g'_0)^{31}.
+\]
+Let the second challenge be
+\[
+    r_2=11,
+    \qquad
+    r_2^{-1}=53\pmod{97}.
+\]
+The final folded scalar is
+\[
+    f''=r_2\cdot15+31=196\equiv2\pmod{97}.
+\]
+The final folded base is
+\[
+    g''=(g'_0)^{53}g'_1.
+\]
+The second commitment update is
+\[
+    \mathsf{com}''=L_2^{r_2}\mathsf{com}'R_2^{r_2^{-1}}.
+\]
+Expanding with $\mathsf{com}'=(g'_0)^{15}(g'_1)^{31}$ gives
+\[
+\begin{aligned}
+\mathsf{com}''
+&=((g'_1)^{15})^{11}(g'_0)^{15}(g'_1)^{31}((g'_0)^{31})^{53}\
+&=(g'_0)^{15+31\cdot 53}(g'_1)^{31+15\cdot 11}.
+\end{aligned}
+\]
+Modulo $97$,
+\[
+    15+31\cdot53=1658\equiv 9,
+    \qquad
+    31+15\cdot11=196\equiv2.
+\]
+On the other hand,
+\[
+\begin{aligned}
+(g'')^{f''}
+&=((g'_0)^{53}g'_1)^2\
+&=(g'_0)^{106}(g'_1)^2\
+&=(g'_0)^9(g'_1)^2,
+\end{aligned}
+\]
+since $106\equiv9\pmod{97}$. Thus
+\[
+    \mathsf{com}''=(g'')^{f''},
+\]
+so the commitment relation survives the second folding round as well.
+
+This is the whole logic of Bulletproofs-style opening: a long vector commitment and inner-product claim are recursively folded into a scalar claim. The proof length grows only logarithmically in the original vector length.
+

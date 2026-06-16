@@ -1,0 +1,336 @@
+﻿\section{A Color-Coded R1CS-to-QAP Example}
+\label{app:r1cs-qap-example}
+
+This appendix gives a complete worked example of the transformation
+\[
+    \text{algebraic circuit}\longrightarrow \text{R1CS}\longrightarrow \text{QAP}.
+\]
+The example is intentionally color coded. The colors are not decoration: they are a reading device for tracking how one object is represented in the next layer. This is the arithmetization route underlying QAP-based systems such as GGPR, Pinocchio, and Groth16~\cite{GennaroGentryParnoRaykova2013,ParnoHowellGentryRaykova2013,Groth2016}. We stop at the QAP divisibility relation and do not construct a Groth16 proof.
+
+\subsection{Color legend: wires, rows, and basis polynomials}
+
+There are two independent color systems.
+
+\begin{tcolorbox}
+\textbf{How to read the colors.}
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Wire colors track columns.} The same wire has the same color in the algebraic circuit, in the assignment vector, in the R1CS matrix column, and in the QAP column polynomial.
+    \item \textbf{Constraint colors track rows.} The same constraint color is used for the algebraic constraint $\mathcal C_i$, the R1CS row $i$, the constraint point $r_i$, and the Lagrange basis polynomial $L_i(X)$.
+    \item In the QAP formula
+    \[
+        A_j(X)=\sum_{i=1}^{m} A_{i,j} L_i(X),
+    \]
+    the column index $j$ is the wire being encoded, while the basis polynomial $L_i(X)$ remembers which R1CS row supplied the coefficient.
+\end{itemize}
+\end{tcolorbox}
+
+The wire-color legend is
+\[
+\begin{array}{c|ccccccc}
+\text{wire} & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\text{role} & \text{constant} & \text{input} & \text{input} & \text{witness} & \text{intermediate} & \text{intermediate} & \text{output}
+\end{array}
+\]
+The constraint-color legend is
+\[
+    \rowone{\mathcal C_1\leftrightarrow r_1=1\leftrightarrow L_1(X)},
+    \qquad
+    \rowtwo{\mathcal C_2\leftrightarrow r_2=2\leftrightarrow L_2(X)},
+    \qquad
+    \rowthree{\mathcal C_3\leftrightarrow r_3=3\leftrightarrow L_3(X)}.
+\]
+Thus a term such as $\rowtwo{L_2(X)}$ inside $A_{\xtwo{x_2}}(X)$ should be read as: ``the $\xtwo{x_2}$ column of the $A$ matrix has a nonzero coefficient in row $\rowtwo{\mathcal C_2}$.''
+
+\subsection{The algebraic circuit}
+
+Work over a field $\F$ of characteristic not equal to $2$ or $3$; for concrete numerical checks, one may read all values in $\F_{97}$. Consider the circuit
+\[
+    \ywire{y}=(\xone{x_1}+\xtwo{x_2})(\xtwo{x_2}+\wone{w_1}).
+\]
+Flatten the computation by introducing two intermediate wires:
+\[
+    \rowone{\mathcal C_1:}\qquad
+    (\xone{x_1}+\xtwo{x_2})\cdot \constwire{1}=\vone{v_1},
+\]
+\[
+    \rowtwo{\mathcal C_2:}\qquad
+    (\xtwo{x_2}+\wone{w_1})\cdot \constwire{1}=\vtwo{v_2},
+\]
+\[
+    \rowthree{\mathcal C_3:}\qquad
+    \vone{v_1}\cdot\vtwo{v_2}=\ywire{y}.
+\]
+These three equations already have the R1CS shape
+\[
+    (\text{linear form})\cdot(\text{linear form})=(\text{linear form}).
+\]
+The concrete assignment used below is
+\[
+    \xone{x_1}=5,
+    \qquad
+    \xtwo{x_2}=6,
+    \qquad
+    \wone{w_1}=1,
+\]
+so that
+\[
+    \vone{v_1}=11,
+    \qquad
+    \vtwo{v_2}=7,
+    \qquad
+    \ywire{y}=77.
+\]
+The full assignment vector is
+\[
+    z=(\constwire{1},\xone{x_1},\xtwo{x_2},\wone{w_1},\vone{v_1},\vtwo{v_2},\ywire{y})
+      =(1,5,6,1,11,7,77).
+\]
+
+\subsection{R1CS matrices with row and column labels}
+
+Using the column order
+\[
+    (\constwire{1},\xone{x_1},\xtwo{x_2},\wone{w_1},\vone{v_1},\vtwo{v_2},\ywire{y}),
+\]
+the $A$ matrix encodes the left linear form in each constraint:
+\[
+\renewcommand{\arraystretch}{1.15}
+\begin{array}{c|ccccccc}
+A & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\rowone{\mathcal C_1} & 0 & \rowone{1} & \rowone{1} & 0 & 0 & 0 & 0 \\
+\rowtwo{\mathcal C_2} & 0 & 0 & \rowtwo{1} & \rowtwo{1} & 0 & 0 & 0 \\
+\rowthree{\mathcal C_3} & 0 & 0 & 0 & 0 & \rowthree{1} & 0 & 0
+\end{array}
+\]
+Read the entry $A_{2,w_1}=\rowtwo{1}$ as follows: it is in the $\wone{w_1}$ column, so it is the coefficient of $\wone{w_1}$; it is in the $\rowtwo{\mathcal C_2}$ row, so it belongs to the second constraint.
+
+The $B$ matrix encodes the right linear form in each constraint:
+\[
+\renewcommand{\arraystretch}{1.15}
+\begin{array}{c|ccccccc}
+B & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\rowone{\mathcal C_1} & \rowone{1} & 0 & 0 & 0 & 0 & 0 & 0 \\
+\rowtwo{\mathcal C_2} & \rowtwo{1} & 0 & 0 & 0 & 0 & 0 & 0 \\
+\rowthree{\mathcal C_3} & 0 & 0 & 0 & 0 & 0 & \rowthree{1} & 0
+\end{array}
+\]
+The first two constraints multiply by the constant wire $\constwire{1}$; the third constraint multiplies by $\vtwo{v_2}$.
+
+The $C$ matrix encodes the output linear form in each constraint:
+\[
+\renewcommand{\arraystretch}{1.15}
+\begin{array}{c|ccccccc}
+C & \constwire{1} & \xone{x_1} & \xtwo{x_2} & \wone{w_1} & \vone{v_1} & \vtwo{v_2} & \ywire{y} \\
+\hline
+\rowone{\mathcal C_1} & 0 & 0 & 0 & 0 & \rowone{1} & 0 & 0 \\
+\rowtwo{\mathcal C_2} & 0 & 0 & 0 & 0 & 0 & \rowtwo{1} & 0 \\
+\rowthree{\mathcal C_3} & 0 & 0 & 0 & 0 & 0 & 0 & \rowthree{1}
+\end{array}
+\]
+The row colors show which equation a coefficient belongs to; the column colors show which wire the coefficient multiplies.
+
+For the assignment $z=(1,5,6,1,11,7,77)$, the three rows check as follows:
+\[
+    \rowone{(A_1\cdot z)(B_1\cdot z)}=(5+6)\cdot1=11=\rowone{C_1\cdot z},
+\]
+\[
+    \rowtwo{(A_2\cdot z)(B_2\cdot z)}=(6+1)\cdot1=7=\rowtwo{C_2\cdot z},
+\]
+\[
+    \rowthree{(A_3\cdot z)(B_3\cdot z)}=11\cdot7=77=\rowthree{C_3\cdot z}.
+\]
+Thus this assignment satisfies the R1CS.
+
+\subsection{From R1CS entries to QAP basis terms}
+
+Choose the constraint domain
+\[
+    H=\{\rowone{r_1=1},\rowtwo{r_2=2},\rowthree{r_3=3}\}.
+\]
+The vanishing polynomial is
+\[
+    Z_H(X)=(X-1)(X-2)(X-3)=X^3-6X^2+11X-6.
+\]
+The Lagrange basis polynomials for $H$ are
+\[
+    \rowone{L_1(X)}=\rowone{\frac{(X-2)(X-3)}{(1-2)(1-3)}}=\rowone{\frac{(X-2)(X-3)}{2}},
+\]
+\[
+    \rowtwo{L_2(X)}=\rowtwo{\frac{(X-1)(X-3)}{(2-1)(2-3)}}=\rowtwo{-(X-1)(X-3)},
+\]
+\[
+    \rowthree{L_3(X)}=\rowthree{\frac{(X-1)(X-2)}{(3-1)(3-2)}}=\rowthree{\frac{(X-1)(X-2)}{2}}.
+\]
+They satisfy $L_i(r_j)=1$ if $i=j$ and $0$ otherwise.
+
+The column-interpolation rule is
+\[
+\boxed{
+    A_j(X)=\sum_{i=1}^{3} A_{i,j}\,L_i(X),
+    \qquad
+    B_j(X)=\sum_{i=1}^{3} B_{i,j}\,L_i(X),
+    \qquad
+    C_j(X)=\sum_{i=1}^{3} C_{i,j}\,L_i(X).
+}
+\]
+Hence an R1CS number becomes a QAP coefficient: the entry $A_{i,j}$ becomes the coefficient of the row-colored basis polynomial $L_i(X)$ inside the wire-colored column polynomial $A_j(X)$.
+
+For example, in the $A$ matrix the nonzero entries become:
+\[
+\begin{array}{c|c|c}
+\text{R1CS entry} & \text{source} & \text{QAP contribution} \\
+\hline
+A_{1,x_1}=\rowone{1} & \xone{x_1}\text{ appears in }\rowone{\mathcal C_1} & \rowone{1\cdot L_1(X)} \\
+A_{1,x_2}=\rowone{1} & \xtwo{x_2}\text{ appears in }\rowone{\mathcal C_1} & \rowone{1\cdot L_1(X)} \\
+A_{2,x_2}=\rowtwo{1} & \xtwo{x_2}\text{ appears in }\rowtwo{\mathcal C_2} & \rowtwo{1\cdot L_2(X)} \\
+A_{2,w_1}=\rowtwo{1} & \wone{w_1}\text{ appears in }\rowtwo{\mathcal C_2} & \rowtwo{1\cdot L_2(X)} \\
+A_{3,v_1}=\rowthree{1} & \vone{v_1}\text{ appears in }\rowthree{\mathcal C_3} & \rowthree{1\cdot L_3(X)}
+\end{array}
+\]
+This table is the key bridge. It shows exactly how a colored number in the R1CS matrix turns into a colored basis term in the QAP.
+
+\subsection{Constructing the QAP column polynomials}
+
+Now collect all contributions for each wire column.
+
+For the $A$ matrix:
+\[
+\begin{array}{c|c}
+\text{wire column} & A_j(X) \\
+\hline
+\xone{x_1} & \rowone{L_1(X)} \\
+\xtwo{x_2} & \rowone{L_1(X)}+\rowtwo{L_2(X)} \\
+\wone{w_1} & \rowtwo{L_2(X)} \\
+\vone{v_1} & \rowthree{L_3(X)}
+\end{array}
+\]
+All other $A_j(X)$ are zero. The term $\rowtwo{L_2(X)}$ inside $A_{\xtwo{x_2}}(X)$ is precisely the QAP image of the R1CS entry $A_{2,x_2}=1$.
+
+For the $B$ matrix:
+\[
+\begin{array}{c|c}
+\text{wire column} & B_j(X) \\
+\hline
+\constwire{1} & \rowone{L_1(X)}+\rowtwo{L_2(X)} \\
+\vtwo{v_2} & \rowthree{L_3(X)}
+\end{array}
+\]
+The constant wire appears in the first two $B$-linear forms, while $\vtwo{v_2}$ appears in the third.
+
+For the $C$ matrix:
+\[
+\begin{array}{c|c}
+\text{wire column} & C_j(X) \\
+\hline
+\vone{v_1} & \rowone{L_1(X)} \\
+\vtwo{v_2} & \rowtwo{L_2(X)} \\
+\ywire{y} & \rowthree{L_3(X)}
+\end{array}
+\]
+For instance, $C_{\ywire{y}}(X)=\rowthree{L_3(X)}$ says that $\ywire{y}$ is the output wire of constraint $\rowthree{\mathcal C_3}$.
+
+\subsection{Combining columns with the assignment}
+
+The assignment values turn the column polynomials into three aggregate polynomials:
+\[
+    A_z(X)=\sum_j z_jA_j(X),
+    \qquad
+    B_z(X)=\sum_j z_jB_j(X),
+    \qquad
+    C_z(X)=\sum_j z_jC_j(X).
+\]
+Using the colored columns above,
+\[
+\begin{aligned}
+A_z(X)
+&=\xone{5}\,\rowone{L_1(X)}
+ +\xtwo{6}\bigl(\rowone{L_1(X)}+\rowtwo{L_2(X)}\bigr)
+ +\wone{1}\,\rowtwo{L_2(X)}
+ +\vone{11}\,\rowthree{L_3(X)}\\
+&=\rowone{11L_1(X)}+\rowtwo{7L_2(X)}+\rowthree{11L_3(X)}\\
+&=4X^2-16X+23,
+\end{aligned}
+\]
+\[
+\begin{aligned}
+B_z(X)
+&=\constwire{1}\bigl(\rowone{L_1(X)}+\rowtwo{L_2(X)}\bigr)
+ +\vtwo{7}\,\rowthree{L_3(X)}\\
+&=\rowone{L_1(X)}+\rowtwo{L_2(X)}+\rowthree{7L_3(X)}\\
+&=3X^2-9X+7,
+\end{aligned}
+\]
+\[
+\begin{aligned}
+C_z(X)
+&=\vone{11}\,\rowone{L_1(X)}+\vtwo{7}\,\rowtwo{L_2(X)}+\ywire{77}\,\rowthree{L_3(X)}\\
+&=\rowone{11L_1(X)}+\rowtwo{7L_2(X)}+\rowthree{77L_3(X)}\\
+&=37X^2-115X+89.
+\end{aligned}
+\]
+The color of each $L_i$ term tells which R1CS row generated that contribution. Evaluating at the row-colored points reproduces the row values:
+\[
+\begin{array}{c|ccc}
+X & A_z(X) & B_z(X) & C_z(X) \\
+\hline
+\rowone{1} & \rowone{11} & \rowone{1} & \rowone{11} \\
+\rowtwo{2} & \rowtwo{7} & \rowtwo{1} & \rowtwo{7} \\
+\rowthree{3} & \rowthree{11} & \rowthree{7} & \rowthree{77}
+\end{array}
+\]
+Thus at each constraint point,
+\[
+    A_z(r_i)B_z(r_i)=C_z(r_i).
+\]
+
+\subsection{Checking the QAP divisibility condition}
+
+Define the QAP numerator
+\[
+    P_z(X)=A_z(X)B_z(X)-C_z(X).
+\]
+Using the explicit polynomials above,
+\[
+\begin{aligned}
+P_z(X)
+&=(4X^2-16X+23)(3X^2-9X+7)-(37X^2-115X+89)\\
+&=12X^4-84X^3+204X^2-204X+72.
+\end{aligned}
+\]
+Direct evaluation gives
+\[
+    P_z(\rowone{1})=P_z(\rowtwo{2})=P_z(\rowthree{3})=0.
+\]
+Therefore $P_z$ is divisible by
+\[
+    Z_H(X)=X^3-6X^2+11X-6.
+\]
+Indeed,
+\[
+    P_z(X)=(12X-12)Z_H(X),
+\]
+so the quotient polynomial is
+\[
+    h_z(X)=12X-12.
+\]
+The final QAP relation for this example is
+\[
+\boxed{
+    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+}
+\]
+The cross-representation trace is now visible:
+\[
+\begin{array}{c}
+\text{colored algebraic constraint }\mathcal C_i\\
+\Updownarrow\\
+\text{colored R1CS row }i\\
+\Updownarrow\\
+\text{colored QAP basis polynomial }L_i(X).
+\end{array}
+\]
+This is exactly the algebraic statement that the next Groth16 layer will commit to and check using pairings.
+

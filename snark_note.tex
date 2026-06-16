@@ -1,0 +1,115 @@
+﻿\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tcolorbox}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\setlength{\headheight}{14pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Mathematical Notes on SNARKs}
+\rhead{\thepage}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\poly}{\F[X]}
+\newcommand{\polydeg}[1]{\F[X]_{\le #1}}
+\newcommand{\negl}{\mathrm{negl}}
+\newcommand{\pp}{\mathsf{pp}}
+\newcommand{\vp}{\mathsf{vp}}
+\newcommand{\Com}{\mathsf{Com}}
+\newcommand{\Commit}{\mathsf{Commit}}
+\newcommand{\Open}{\mathsf{Open}}
+\newcommand{\Verify}{\mathsf{Verify}}
+\newcommand{\Setup}{\mathsf{Setup}}
+\newcommand{\Eval}{\mathsf{Eval}}
+\newcommand{\Adv}{\mathcal{A}}
+\newcommand{\Sim}{\mathsf{Sim}}
+\newcommand{\iprod}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\G}{\mathbb{G}}
+\newcommand{\GT}{\mathbb{G}_T}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\RS}{\mathsf{RS}}
+\newcommand{\bp}{\mathsf{bp}}
+\newcommand{\pub}[1]{\textcolor{blue!65!black}{#1}}
+\newcommand{\wit}[1]{\textcolor{purple!70!black}{#1}}
+\newcommand{\aux}[1]{\textcolor{orange!80!black}{#1}}
+\definecolor{wireconstcolor}{RGB}{95,95,95}
+\definecolor{wirexonecolor}{RGB}{0,90,180}
+\definecolor{wirextwocolor}{RGB}{0,135,135}
+\definecolor{wirewonecolor}{RGB}{125,70,170}
+\definecolor{wirevonecolor}{RGB}{220,120,0}
+\definecolor{wirevtwocolor}{RGB}{40,145,70}
+\definecolor{wireycolor}{RGB}{190,55,55}
+\definecolor{rowonecolor}{RGB}{31,119,180}
+\definecolor{rowtwocolor}{RGB}{214,39,40}
+\definecolor{rowthreecolor}{RGB}{44,160,44}
+\newcommand{\constwire}[1]{\textcolor{wireconstcolor}{#1}}
+\newcommand{\xone}[1]{\textcolor{wirexonecolor}{#1}}
+\newcommand{\xtwo}[1]{\textcolor{wirextwocolor}{#1}}
+\newcommand{\wone}[1]{\textcolor{wirewonecolor}{#1}}
+\newcommand{\vone}[1]{\textcolor{wirevonecolor}{#1}}
+\newcommand{\vtwo}[1]{\textcolor{wirevtwocolor}{#1}}
+\newcommand{\ywire}[1]{\textcolor{wireycolor}{#1}}
+\newcommand{\rowone}[1]{\textcolor{rowonecolor}{#1}}
+\newcommand{\rowtwo}[1]{\textcolor{rowtwocolor}{#1}}
+\newcommand{\rowthree}[1]{\textcolor{rowthreecolor}{#1}}
+\newcommand{\set}[1]{\left\{#1\right\}}
+\newcommand{\abs}[1]{\left|#1\right|}
+\newcommand{\paren}[1]{\left(#1\right)}
+\newcommand{\bracket}[1]{\left[#1\right]}
+\newcommand{\angles}[1]{\left\langle #1\right\rangle}
+\newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+\tcbset{colback=blue!2!white,colframe=blue!50!black,boxrule=0.6pt,arc=1.5mm}
+\titleformat{\section}{\Large\bfseries\color{blue!45!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{blue!35!black}}{\thesubsection}{0.6em}{}
+\title{\textbf{Mathematical Notes on SNARKs}}
+\author{A living technical notebook}
+\date{March 2026}
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\tableofcontents
+\newpage
+
+\todo{
+  \begin{itemize}
+    \item Think about the structure of the notes.
+    \item Fix the false and ambiguous statements in the notes.
+  \end{itemize}
+}
+\input{s1_overview_foundations}
+\input{s2_algebra}
+\input{s3_pcs}
+\input{s4_iop_paradigm}
+\input{s5_gadgets}
+\input{s6_plonk}
+\input{s7_groth16}
+
+\bibliographystyle{alpha}
+\bibliography{snark_notes_r1cs_qap_colortrace_references}
+
+\appendix
+\input{s9_bp_example}
+\input{s10_plonk_example}
+\input{s11_r1cs_example}
+
+\end{document}

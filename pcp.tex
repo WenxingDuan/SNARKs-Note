@@ -1,0 +1,66 @@
+%% pcp.tex -- short note on PCP(0,poly) vs the PCP theorem
+%% \input{pcp} inside zero_knowledge.tex
+
+\subsection*{the PCP theorem and local verification}
+
+\todo{1. revise this and make it fit inside the narative. We need Kilian PCP -> SNARK and maybe some other stuff for NIZK
+2. NIZK is impossible without CRS or ROM, need to find the proof
+3. what routes SNARG(K)s takes and why(building intuition, details shall be given in its own section)?}
+
+\subsubsection*{Trivial characterization: $\mathrm{NP} = \mathrm{PCP}(0,\mathrm{poly}(n))$}
+
+\textbf{Setting.} Zero randomness, $\mathrm{poly}(n)$ queries.
+
+\begin{itemize}
+  \item \textbf{$\mathrm{NP}\subseteq \mathrm{PCP}(0,\mathrm{poly}(n))$:}
+  Let proof $\pi := w$ (the NP witness). The verifier has no randomness,
+  reads the entire $\pi$ (poly many queries), and simulates the
+  deterministic NP-verifier $V(x,\pi)$.
+  \begin{itemize}
+    \item Completeness: $x\in L \Rightarrow \pi=w$, $V(x,w)=1$, accept w.p.\ 1.
+    \item Soundness: $x\notin L \Rightarrow \forall \pi,\ V(x,\pi)=0$, reject w.p.\ 1.
+  \end{itemize}
+
+  \item \textbf{$\mathrm{PCP}(0,\mathrm{poly}(n))\subseteq \mathrm{NP}$:}
+  No randomness $\Rightarrow$ queried positions are \emph{fixed} (depend only on $x$),
+  so only $q(n)=\mathrm{poly}(n)$ positions of $\pi$ ever matter. Take the
+  contents of those positions as the NP witness; simulate the deterministic
+  verifier on them.
+\end{itemize}
+
+This is purely a restatement of the NP definition: \emph{``proof = witness,
+read it all, check deterministically.''}
+
+\subsubsection*{The PCP Theorem: $\mathrm{NP} = \mathrm{PCP}(O(\log n), O(1))$}
+
+\textbf{Setting.} $O(\log n)$ random bits, $O(1)$ queries
+(constant-query, constant soundness error after amplification).
+
+\begin{itemize}
+  \item $O(\log n)$ randomness $\Rightarrow$ proof length $q(n)\cdot 2^{O(\log n)} = \mathrm{poly}(n)$,
+        so proofs remain polynomial-size --- consistent with $\mathrm{NP}$.
+  \item Despite querying only $O(1)$ symbols, the verifier can detect
+        \emph{any} cheating proof with probability $\geq 1/2$ (boostable
+        to $1-\varepsilon$ by repetition).
+  \item Non-trivial direction: $\mathrm{NP}\subseteq \mathrm{PCP}(O(\log n),O(1))$
+        requires constructing an encoding of any NP witness such that
+        \emph{local} (constant-query) consistency checks detect \emph{global}
+        inconsistency --- the deep result of Arora--Safra and
+        Arora--Lund--Motwani--Sudan--Szegedy.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabular}{l|c|c}
+ & $\mathrm{PCP}(0,\mathrm{poly}(n))$ & $\mathrm{PCP}(O(\log n),O(1))$ \\\hline
+Randomness & none & $O(\log n)$ bits \\
+Queries & $\mathrm{poly}(n)$ & $O(1)$ \\
+Proof length & $\mathrm{poly}(n)$ & $\mathrm{poly}(n)$ \\
+Why $= \mathrm{NP}$ & definitional restatement & deep theorem; local $\Rightarrow$ global soundness \\
+\end{tabular}
+\end{center}
+
+Intuition: the trivial case says \emph{``verify NP by reading the whole witness.''}
+The PCP theorem says \emph{``a constant number of cleverly encoded bits suffice,
+no matter how large the witness is.''} This is the information-theoretic ancestor
+of the IOP-to-SNARK paradigm.
