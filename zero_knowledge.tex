@@ -124,6 +124,8 @@ While Bob waits at the entrance, Alice enters the cave and walks down one of the
 
 We now build a mathematically rigorous protocol for a number-theoretic statement, arriving at the famous \emph{Schnorr identification scheme}. Each attempt below fixes exactly one flaw of the previous one; the sequence of failures makes clear why every design choice in the final protocol is necessary.
 
+\todo{it may be more clear here to use chaum pedersen to have a better definition of soundness here. But special soundness capture that the prover must knows the witness because the definition say he must be able to prove for two challenge, which is iff he knows the witness.}
+
 \subsection{Setup}
 
 Let $(\G, g, q)$ be a cyclic group of prime order $q$ with generator $g$. Write $\Z_q = \Z/q\Z$. The \emph{discrete logarithm (DLOG) relation} is
