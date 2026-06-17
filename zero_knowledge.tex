@@ -1,40 +1,3 @@
-\documentclass[11pt]{article}
-\usepackage[a4paper,margin=1in]{geometry}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{lmodern}
-\usepackage{microtype}
-\usepackage{amsmath,amssymb,amsthm,mathtools}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{tcolorbox}
-\usepackage{enumitem}
-\usepackage{array}
-\usepackage{makecell}
-\usepackage{multirow}
-\usepackage{titlesec}
-\usepackage{fancyhdr}
-
-\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{0.6em}
-\setlength{\headheight}{14pt}
-\pagestyle{fancy}
-\fancyhf{}
-\lhead{Zero Knowledge: An Introduction}
-\rhead{\thepage}
-
-\input{macro}
-
-\title{\textbf{Introduction to Zero Knowledge Proofs}}
-\date{}
-
-\begin{document}
-\maketitle
-\thispagestyle{empty}
-\tableofcontents
-\newpage
-
 %% ============================================================
 \section{What Is Zero Knowledge?}
 %% ============================================================
@@ -45,7 +8,7 @@ Zero-knowledge proofs ask: can we do better? Can a prover convince a verifier th
 
 The answer, perhaps surprisingly, is yes.
 
-\subsection*{The simulation paradigm}
+\subsubsection*{The simulation paradigm}
 
 Take \emph{perfect secrecy} as a concrete illustration. A cipher $\mathsf{Enc}$ is perfectly secret if
 \[
@@ -68,16 +31,16 @@ The logic is elegant: if the verifier could have generated the same conversation
 We will develop this intuition through a series of concrete examples.
 
 %% ============================================================
-\section{The Ali Baba's Cave}
+\subsection{The Ali Baba's Cave}
 %% ============================================================
 
-\subsection{Setup}
+\subsubsection{Setup}
 
 Imagine a circular cave with a single public entrance. Inside, the path splits into two branches, $A$ and $B$, that meet at a locked door deep in the rock. The door can only be opened with a secret magic word. Alice knows the magic word; Bob does not.
 
 Alice wants to prove to Bob that she knows the magic word --- without uttering it.
 
-\subsection{Protocol}
+\subsubsection{Protocol}
 
 While Bob waits at the entrance, Alice enters the cave and walks down one of the two branches, choosing privately which one. Bob then shouts a challenge from the entrance, naming one of the two sides. Alice must emerge from that side: if she chose the correct branch she simply walks out; otherwise she must pass through the door using the magic word.
 
@@ -102,16 +65,16 @@ While Bob waits at the entrance, Alice enters the cave and walks down one of the
 
 \medskip
 
-\subsection{Analysis}
+\subsubsection{Analysis}
 
 \textbf{Completeness.} If Alice knows the magic word she can always exit from whichever side Bob names, regardless of which side she entered. The verifier always outputs 1.
 
 \textbf{Honest-verifier zero knowledge.} The observable transcript is just $(c, z)$. An honest Alice always has $z = c$, so the transcript contains only the challenge value --- which the verifier chose themselves. A simulator that picks $c \leftarrow \{A, B\}$ at random and sets $z = c$ produces the same distribution without knowing any magic word.
 
-\textbf{Soundness.} If Alice does \emph{not} know the magic word, she must commit to one branch before hearing Bob's challenge. She exits successfully only if Bob happens to call the side she already entered. Since Bob's choice is uniformly random, a cheating Alice passes with probability at most $1/2$ per round. 
+\textbf{Soundness.} If Alice does \emph{not} know the magic word, she must commit to one branch before hearing Bob's challenge. She exits successfully only if Bob happens to call the side she already entered. Since Bob's choice is uniformly random, a cheating Alice passes with probability at most $1/2$ per round.
 
 %% ============================================================
-\subsection{Exercise: The Apple Test}
+\subsubsection{Exercise: The Apple Test}
 %% ============================================================
 
 \begin{exercisebox}
@@ -119,14 +82,14 @@ While Bob waits at the entrance, Alice enters the cave and walks down one of the
 \end{exercisebox}
 
 %% ============================================================
-\section{Sigma Protocols for Discrete Logarithm}
+\subsection{Sigma Protocols for Discrete Logarithm}
 %% ============================================================
 
 We now build a mathematically rigorous protocol for a number-theoretic statement, arriving at the famous \emph{Schnorr identification scheme}. Each attempt below fixes exactly one flaw of the previous one; the sequence of failures makes clear why every design choice in the final protocol is necessary.
 
 \todo{it may be more clear here to use chaum pedersen to have a better definition of soundness here. But special soundness capture that the prover must knows the witness because the definition say he must be able to prove for two challenge, which is iff he knows the witness.}
 
-\subsection{Setup}
+\subsubsection{Setup}
 
 Let $(\G, g, q)$ be a cyclic group of prime order $q$ with generator $g$. Write $\Z_q = \Z/q\Z$. The \emph{discrete logarithm (DLOG) relation} is
 \[
@@ -137,7 +100,7 @@ The prover $P$ holds a public element $h \in \G$ and a secret witness $w \in \Z_
 The goal: $P$ convinces $V$ that they know $w$ without revealing anything about $w$ itself.
 
 %% -----------------------------------------------------------
-\subsection{First Attempt: Reveal the Witness Directly}
+\subsubsection{First Attempt: Reveal the Witness Directly}
 %% -----------------------------------------------------------
 
 The most direct approach: just send $w$.
@@ -165,7 +128,7 @@ The most direct approach: just send $w$.
 \textbf{Honest-verifier ZK fails}: $w$ is sent in the clear. The verifier directly learns the discrete logarithm.
 
 %% -----------------------------------------------------------
-\subsection{Second Attempt: Blind the Response with a Nonce}%
+\subsubsection{Second Attempt: Blind the Response with a Nonce}%
 \label{subsec:second-attempt}
 %% -----------------------------------------------------------
 
@@ -199,7 +162,7 @@ To hide $w$, the prover randomises the response with a fresh nonce $r$: commit t
 \end{tcolorbox}
 
 %% -----------------------------------------------------------
-\subsection{Third Attempt: Incorporate the Witness into the Response}
+\subsubsection{Third Attempt: Incorporate the Witness into the Response}
 %% -----------------------------------------------------------
 
 The fix: include $w$ in the response via $z \deq r + w$ and adjust the check to involve $h$.
@@ -231,7 +194,7 @@ The fix: include $w$ in the response via $z \deq r + w$ and adjust the check to 
 \textbf{Attack.} Choose any $z \leftarrow \Zq$, then set $a \deq g^z \cdot h^{-1}$. Send $a$, then send $z$. The check becomes $g^z \stackrel{?}{=} a \cdot h = g^z \cdot h^{-1} \cdot h = g^z$. It passes.
 \end{attacknote}
 
-\subsection{What Is Missing?}
+\subsubsection{What Is Missing?}
 
 Notice something about Attempt 3: if the prover \emph{follows the protocol} and genuinely sets $a \deq g^r$ for a fresh random $r$, then producing a valid response $z = r + w$ requires knowing $w$. An honest prover who lacks $w$ is stuck. In this sense, the protocol would be sound --- \emph{if} we could trust the prover to generate $a$ correctly.
 
@@ -251,7 +214,7 @@ A cheating prover can pre-engineer $a$ to pass one of these tests, but not both 
 This is the defining structure of a \emph{sigma protocol}: commit $\to$ challenge $\to$ respond.
 
 %% -----------------------------------------------------------
-\subsection{Fourth Attempt: A Binary Challenge}
+\subsubsection{Fourth Attempt: A Binary Challenge}
 %% -----------------------------------------------------------
 
 We combine the two verification checks from Attempts 2 and 3, selected by a random bit from the verifier.
@@ -307,7 +270,7 @@ This style of argument is called \emph{black-box simulation}: the simulator is g
 A cheating prover without $w$ can still succeed with probability $1/2$: they commit to an $a$ valid for one challenge value and hope the verifier asks for it. Running $k$ independent rounds reduces this to $2^{-k}$, but there is a cleaner way.
 
 %% -----------------------------------------------------------
-\subsection{The Schnorr Protocol: Large Challenge Space}
+\subsubsection{The Schnorr Protocol: Large Challenge Space}
 %% -----------------------------------------------------------
 
 Replace the binary challenge with $c \leftarrow \Zq$. The soundness error drops from $1/2$ to $1/q$, negligible for a cryptographically large prime $q$.
@@ -371,8 +334,16 @@ Without this assumption, non-interactive Fiat--Shamir can be broken in the stand
 \end{tcolorbox}
 
 %% ============================================================
-\section{Why Can Proofs Be Zero-Knowledge?}
+\subsection{Why Can Proofs Be Zero-Knowledge?}
 %% ============================================================
+
+\todo{I think this part is not super correct. Obviously knowledge soundness and zero knowledge cannot coexist. But soundness is related to whether the statement is in $L$ or not, not related to whether you know the witness.}
+% 我的疑问是单纯的soundness似乎并不关系你知不知道witness,而是关心能否证明一个错误命题,但是ZKP的定义里关心的是你是否拥有这个witness,两者无法构成矛盾。soundness是关于statement的,而knowledge soundness是关于witness的。soundness似乎不关心你有没有witness,假设我知道这个graph是Hamiltonian的,但我没有witness,我该怎么prove呢}
+
+% \todo{同时实现statistical soundness和statistical zero knowledge的protocol只存在于L = AM intersect coAM, 然后NP不属于这个class}
+\todo{there seems to have no soundness definition in sigma protocol. I should check the literature.}
+\todo{it also seems like for 3-coloring and hamiltonian graph, if the prover doesn't know the witness, he cannot commit to a valid statement. 
+So maybe the problem here is that the DL problem is not a decision problem, which makes the soundness weird.}
 
 Attempt~2 (\S\ref{subsec:second-attempt}) made the point starkly: zero knowledge without soundness is trivial --- the prover ignores the witness, the verifier ignores $h$, and simulation is immediate. The hard question is whether we can have \emph{both}. To answer it precisely we need two distinct notions of soundness.
 
@@ -415,7 +386,7 @@ A cheating prover who guesses $c$ correctly (with probability $1/q$) before comm
 Perfect knowledge soundness would require zero probability of forging.
 
 
-\subsection{The Scope of Zero-Knowledge Proofs}
+\subsubsection{The Scope of Zero-Knowledge Proofs}
 
 \begin{exercisebox}
   A Sudoku puzzle is a $9\times 9$ grid partially filled with digits $1$--$9$, where the goal is to complete the grid so that every row, every column, and every $3\times 3$ box contains each digit exactly once. The completed grid is the \emph{witness}; the partially filled puzzle is the \emph{public statement}.
@@ -435,10 +406,10 @@ The scope extends even further. Ben-Or, Goldreich, Goldwasser, H\aa stad, Kilian
 \todo{add discussion here about the power of verifier, it cannot be too powerful, and link to the fact for example for the sudoku, if you can solve it, ZKP is meaningless}Both results require computational assumptions. This is not merely a convenience: the \emph{information-theoretic} (or \emph{perfect/statistical}) ZK setting, where indistinguishability must hold even against an unbounded verifier, is provably more restricted. Some non-trivial languages --- graph isomorphism is the canonical example --- do have perfect ZK proofs. But Fortnow~\cite{Fortnow87} showed that if \emph{every} NP language had a perfect ZK proof, the polynomial hierarchy would collapse, which is widely believed not to happen. Computational assumptions are therefore necessary to extend zero knowledge to all of NP and beyond.
 
 %% ============================================================
-\section{From Interactive to Non-Interactive: The Role of the CRS}
+\subsection{From Interactive to Non-Interactive: The Role of the CRS}
 %% ============================================================
 
-\subsection{The problem with NIZK}
+\subsubsection{The problem with NIZK}
 
 In the sigma protocols above, soundness rests on the random challenge $c$ sent by the verifier \emph{after} the prover commits. Recall Attempts 2 and 3: without that challenge, the prover could choose the response first and backwards-engineer a matching commitment. The challenge is the essential ingredient that prevents this.
 
@@ -448,7 +419,7 @@ In a \emph{non-interactive zero-knowledge} (NIZK) proof system there is no back-
 \textbf{The difficulty.} Without a verifier challenge, the prover and the ZK simulator face exactly the same task: produce $\zkproof$ without receiving anything from the outside. If a simulator can generate convincing proofs for true statements without the witness, a cheating prover can attempt the same strategy for false statements. Soundness and zero knowledge appear to be incompatible.
 \end{tcolorbox}
 
-\subsection{The common reference string}
+\subsubsection{The common reference string}
 
 The solution is to introduce shared randomness via a \emph{common reference string} (CRS). A trusted setup algorithm generates
 \[
@@ -462,9 +433,3 @@ publishes $\crs$, and discards (or keeps secret) the \emph{trapdoor} $\td$. The 
 \end{itemize}
 
 This restores the separation that the interactive challenge provided. In the interactive setting, the simulator's extra power was the ability to see $c$ before committing. In the NIZK setting, the simulator's extra power is the trapdoor $\td$.
-
-
-\bibliographystyle{alpha}
-\bibliography{zero_knowledge_references}
-
-\end{document}

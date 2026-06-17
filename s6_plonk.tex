@@ -3,6 +3,8 @@
 
 \subsection{A pedagogical one-column Plonk arithmetization}
 
+\todo{change this section to fully reflect the real plonk left/right/output column }
+
 This section presents a pedagogical one-column version of Plonk. Real Plonkish systems usually use several witness columns and row-wise gate identities; the one-column presentation below is meant to make the algebraic dependencies visible before introducing production-level notation.
 
 Plonk can be presented as a polynomial IOP for arithmetic circuits. Consider the circuit
@@ -91,6 +93,8 @@ S(y)\bigl(T(y)+T(\omega y)\bigr)
 +\bigl(1-S(y)\bigr)T(y)T(\omega y)
 -T(\omega^2y)=0.
 \]
+
+\todo{I think this equation is not correct}
 If $S(y)=1$, this says left plus right equals output. If $S(y)=0$, it says left times right equals output.
 
 \subsubsection*{(3) Wiring correctness}

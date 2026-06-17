@@ -392,6 +392,12 @@ The verifier samples a random nonzero challenge $r\in\F_p^\times$. The folded co
     \qquad
     f'_1=rf_1+f_3.
 \]
+
+\begin{intuitionbox}[title=\textbf{Intuition for $r$}]
+  The folded claimed value $v' = rv_L + v_R$ can be seen as a one-time MAC, so it perfectly hides the original values $v_L$ and $v_R$. 
+  ALso, if the prover tries to cheat by choosing inconsistent halves, the random challenge $r$ ensures that the probability of passing the folded relation is negligible.
+\end{intuitionbox}
+
 The folded bases are
 \[
     g'_0=g_0^{r^{-1}}g_2,

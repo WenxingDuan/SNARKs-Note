@@ -1,30 +1,86 @@
-% macro.tex -- all macros for zero-knowledge notes
+% macro.tex -- shared macros for SNARKs notes
 
-%% ---- Pairing group notation ----
-%% \GT  : the target group G_T
-%% \gone{a}, \gtwo{a}, \gT{a} : bracket encoding [a]_1, [a]_2, [a]_T
+%% ================================================================
+%%  Package options
+%% ================================================================
+\tcbuselibrary{skins}
+
+%% ================================================================
+%%  Typography
+%% ================================================================
+\titleformat{\section}{\Large\bfseries\color{blue!45!black}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{blue!35!black}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{blue!30!black}}{\thesubsubsection}{0.6em}{}
+\tcbset{colback=blue!2!white,colframe=blue!50!black,boxrule=0.6pt,arc=1.5mm}
+
+%% ================================================================
+%%  Theorem-like environments
+%% ================================================================
+\newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+
+%% ================================================================
+%%  Math: number systems
+%% ================================================================
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\G}{\mathbb{G}}
 \newcommand{\GT}{\mathbb{G}_T}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Zq}{\Z_q}
+
+%% ================================================================
+%%  Math: polynomial notation
+%% ================================================================
+\newcommand{\poly}{\F[X]}
+\newcommand{\polydeg}[1]{\F[X]_{\le #1}}
+
+%% ================================================================
+%%  Math: pairing encodings  [a]_1, [a]_2, [a]_T
+%% ================================================================
 \newcommand{\gone}[1]{[#1]_1}
 \newcommand{\gtwo}[1]{[#1]_2}
 \newcommand{\gT}[1]{[#1]_T}
 
-%% ---- tcolorbox libraries ----
-\tcbuselibrary{skins}
-
 %% ================================================================
-%%  Standard notation
+%%  Math: general utilities
 %% ================================================================
-\newcommand{\G}{\mathbb{G}}
-\newcommand{\Z}{\mathbb{Z}}
-\newcommand{\F}{\mathbb{F}}
-\newcommand{\Adv}{\mathcal{A}}
 \newcommand{\set}[1]{\left\{#1\right\}}
+\newcommand{\abs}[1]{\left|#1\right|}
+\newcommand{\paren}[1]{\left(#1\right)}
+\newcommand{\bracket}[1]{\left[#1\right]}
+\newcommand{\angles}[1]{\left\langle #1\right\rangle}
+\newcommand{\iprod}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\deq}{\mathrel{:=}}
 
-% NP relation and language
+%% ================================================================
+%%  Math: proof-system notation
+%% ================================================================
+\newcommand{\negl}{\mathrm{negl}}
+\newcommand{\Adv}{\mathcal{A}}
+\newcommand{\Sim}{\mathsf{Sim}}
+\newcommand{\pp}{\mathsf{pp}}
+\newcommand{\vp}{\mathsf{vp}}
+\newcommand{\RS}{\mathsf{RS}}
+\newcommand{\bp}{\mathsf{bp}}
+
+%% ================================================================
+%%  Math: commitment scheme notation
+%% ================================================================
+\newcommand{\Com}{\mathsf{Com}}
+\newcommand{\Commit}{\mathsf{Commit}}
+\newcommand{\Open}{\mathsf{Open}}
+\newcommand{\Verify}{\mathsf{Verify}}
+\newcommand{\Setup}{\mathsf{Setup}}
+\newcommand{\Eval}{\mathsf{Eval}}
+
+%% ================================================================
+%%  Math: ZK / NIZK notation
+%% ================================================================
 \newcommand{\relation}{\mathcal{R}}
 \newcommand{\lang}{\mathcal{L}}
-
-% NIZK game macros
 \newcommand{\statement}{x}
 \newcommand{\zkproof}{\pi}
 \newcommand{\crs}{\mathsf{crs}}
@@ -33,28 +89,45 @@
 \newcommand{\simprove}{\mathsf{SimProve}}
 \newcommand{\verify}{\mathsf{Verify}}
 
-% ZK-specific shorthands
-\newcommand{\Zq}{\Z_q}            % Z/qZ
-\newcommand{\deq}{\mathrel{:=}}   % definitional assignment
+%% ================================================================
+%%  Colors: witness / public / auxiliary annotation
+%% ================================================================
+\newcommand{\pub}[1]{\textcolor{blue!65!black}{#1}}
+\newcommand{\wit}[1]{\textcolor{purple!70!black}{#1}}
+\newcommand{\aux}[1]{\textcolor{orange!80!black}{#1}}
 
 %% ================================================================
-%%  Theorem-like environments
+%%  Colors: circuit wire trace
 %% ================================================================
-\newtheorem{definition}{Definition}
-\newtheorem{remark}{Remark}
-\newtheorem{example}{Example}
+\definecolor{wireconstcolor}{RGB}{95,95,95}
+\definecolor{wirexonecolor}{RGB}{0,90,180}
+\definecolor{wirextwocolor}{RGB}{0,135,135}
+\definecolor{wirewonecolor}{RGB}{125,70,170}
+\definecolor{wirevonecolor}{RGB}{220,120,0}
+\definecolor{wirevtwocolor}{RGB}{40,145,70}
+\definecolor{wireycolor}{RGB}{190,55,55}
+
+\newcommand{\constwire}[1]{\textcolor{wireconstcolor}{#1}}
+\newcommand{\xone}[1]{\textcolor{wirexonecolor}{#1}}
+\newcommand{\xtwo}[1]{\textcolor{wirextwocolor}{#1}}
+\newcommand{\wone}[1]{\textcolor{wirewonecolor}{#1}}
+\newcommand{\vone}[1]{\textcolor{wirevonecolor}{#1}}
+\newcommand{\vtwo}[1]{\textcolor{wirevtwocolor}{#1}}
+\newcommand{\ywire}[1]{\textcolor{wireycolor}{#1}}
 
 %% ================================================================
-%%  Typography: section headings and default tcolorbox style
+%%  Colors: table row annotation
 %% ================================================================
-\titleformat{\section}{\Large\bfseries\color{blue!45!black}}{\thesection}{0.6em}{}
-\titleformat{\subsection}{\large\bfseries\color{blue!35!black}}{\thesubsection}{0.6em}{}
-\titleformat{\subsubsection}{\normalsize\bfseries\color{blue!30!black}}{\thesubsubsection}{0.6em}{}
+\definecolor{rowonecolor}{RGB}{31,119,180}
+\definecolor{rowtwocolor}{RGB}{214,39,40}
+\definecolor{rowthreecolor}{RGB}{44,160,44}
 
-\tcbset{colback=blue!2!white,colframe=blue!50!black,boxrule=0.6pt,arc=1.5mm}
+\newcommand{\rowone}[1]{\textcolor{rowonecolor}{#1}}
+\newcommand{\rowtwo}[1]{\textcolor{rowtwocolor}{#1}}
+\newcommand{\rowthree}[1]{\textcolor{rowthreecolor}{#1}}
 
 %% ================================================================
-%%  Colors for protocol diagrams
+%%  Colors: protocol diagram frames
 %% ================================================================
 \definecolor{zkborder}{RGB}{35,85,175}
 \definecolor{zkback}{RGB}{247,250,255}
@@ -62,15 +135,12 @@
 \definecolor{zkpropback}{RGB}{240,247,255}
 
 %% ================================================================
-%%  Property checklist
+%%  Protocol: property checklist boxes
 %% ================================================================
-
-%  Colored Yes / No indicators
 \newcommand{\propyes}{\textcolor{green!65!black}{\textbf{Yes}}}
 \newcommand{\propno}{\textcolor{red!65!black}{\textbf{No}}}
 
-%  \propbox{completeness}{honest-verifier ZK}{special soundness}
-%  \propboxsound{completeness}{honest-verifier ZK}{soundness}  (no "special")
+%  \propboxsound{completeness}{honest-verifier ZK}{soundness}
 \newcommand{\propboxsound}[3]{%
   \begin{tcolorbox}[
     enhanced,
@@ -86,6 +156,8 @@
     \end{itemize}
   \end{tcolorbox}%
 }
+
+%  \propbox{completeness}{honest-verifier ZK}{special soundness}
 \newcommand{\propbox}[3]{%
   \begin{tcolorbox}[
     enhanced,
@@ -103,15 +175,11 @@
 }
 
 %% ================================================================
-%%  Protocol diagram components
+%%  Protocol: message arrows and diagram environment
 %% ================================================================
-
-%  Message arrows
 \newcommand{\send}[1]{\ensuremath{\xrightarrow{\;\;#1\;\;}}}   % Prover -> Verifier
 \newcommand{\recv}[1]{\ensuremath{\xleftarrow{\;\;#1\;\;}}}    % Verifier -> Prover
 
-%  Outer frame for the protocol table.
-%  Usage: wrap \begin{sigmatab}...\end{sigmatab} inside this.
 \newtcolorbox{protocolbox}{
   enhanced,
   colback=zkback, colframe=zkborder,
@@ -119,18 +187,8 @@
   left=5pt, right=5pt, top=5pt, bottom=5pt
 }
 
-%  Protocol table (tabular only — place inside protocolbox).
-%  Arguments: #1 = prover label, #2 = verifier label.
-%  Include $...$ yourself if the label contains math.
-%
-%  Example:
-%    \begin{protocolbox}
-%    \begin{sigmatab}{$P(h;\,w)$}{$V(h)$}
-%      \makecell[l]{$r\leftarrow\Zq$\\$a\deq g^r$} & \send{a} & \\
-%      & \recv{c} & $c\leftarrow\Zq$ \\
-%      $z\deq r+c\cdot w$ & \send{z} & Output 1 if $g^z=a\cdot h^c$ \\
-%    \end{sigmatab}
-%    \end{protocolbox}
+%  Usage: \begin{sigmatab}{Prover label}{Verifier label} ... \end{sigmatab}
+%  Place inside protocolbox.
 \newenvironment{sigmatab}[2]{%
   \small\renewcommand{\arraystretch}{1.6}%
   \begin{tabular}{@{}p{0.37\linewidth} c p{0.41\linewidth}@{}}%
@@ -141,7 +199,24 @@
   \end{tabular}%
 }
 
-%  Inline TODO note (visible in PDF)
+%% ================================================================
+%%  Utility boxes
+%% ================================================================
+
+%  Intuition / analogy box (green)
+%  Usage: \begin{intuitionbox} ... \end{intuitionbox}
+%  Optional titled variant: \begin{intuitionbox}[title=\textbf{My title}] ... \end{intuitionbox}
+\newenvironment{intuitionbox}[1][]{%
+  \begin{tcolorbox}[
+    enhanced,
+    colback=green!4!white, colframe=green!50!black,
+    boxrule=0.6pt, arc=2mm,
+    left=5pt, right=5pt, top=4pt, bottom=4pt,
+    #1
+  ]%
+}{%
+  \end{tcolorbox}%
+}
 \newcommand{\todo}[1]{%
   \begin{tcolorbox}[
     enhanced,
@@ -154,9 +229,6 @@
   \end{tcolorbox}%
 }
 
-%  Exercise box (orange)
-%  Usage: \begin{exercisebox} ... \end{exercisebox}
-%  The bold "Exercise." label is added automatically.
 \newenvironment{exercisebox}{%
   \begin{tcolorbox}[
     colback=orange!5!white, colframe=orange!60!black,
@@ -167,7 +239,6 @@
   \end{tcolorbox}%
 }
 
-%  Attack / warning note box
 \newenvironment{attacknote}{%
   \begin{tcolorbox}[
     enhanced,
