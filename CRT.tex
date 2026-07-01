@@ -1,0 +1,90 @@
+\section{Chinese Remainder Theorem and the Structure of $\mathbb{Z}_N^*$}
+
+\subsection{The Ring Isomorphism}
+
+Let $N = pq$ with $p, q$ distinct odd primes and $\gcd(p,q) = 1$. The \textbf{Chinese Remainder Theorem (CRT)} gives a ring isomorphism:
+\[
+    \mathbb{Z}_N \;\cong\; \mathbb{Z}_p \times \mathbb{Z}_q,
+    \qquad
+    a \;\mapsto\; (a \bmod p,\; a \bmod q).
+\]
+This is a ring isomorphism: it respects both addition and multiplication. Restricting to units gives a group isomorphism:
+\[
+    \mathbb{Z}_N^* \;\cong\; \mathbb{Z}_p^* \times \mathbb{Z}_q^*.
+\]
+
+\subsection{The Reconstruction Formula and Idempotents}
+
+The inverse of the CRT map is explicit. Define the \emph{CRT basis elements}:
+\[
+    e_p \;=\; q \cdot (q^{-1} \bmod p) \bmod N,
+    \qquad
+    e_q \;=\; p \cdot (p^{-1} \bmod q) \bmod N.
+\]
+These exist because $\gcd(q,p) = \gcd(p,q) = 1$.
+Given $a_p = a \bmod p$ and $a_q = a \bmod q$, the unique lift to $\mathbb{Z}_N$ is:
+\[
+    a \;=\; a_p \cdot e_p \;+\; a_q \cdot e_q \bmod N. \tag{CRT reconstruction}
+\]
+
+\paragraph{Key observation: $e_p$ and $e_q$ are idempotents.}
+An element $e$ is idempotent if $e^2 = e$. To verify $e_p^2 = e_p \pmod{N}$, equivalently check $e_p(e_p - 1) \equiv 0 \pmod{N}$:
+\begin{itemize}
+    \item \textbf{Mod $p$:} $e_p = q \cdot q^{-1} \equiv 1 \pmod{p}$, so $e_p - 1 \equiv 0 \pmod{p}$. \checkmark
+    \item \textbf{Mod $q$:} $e_p$ has a factor of $q$, so $e_p \equiv 0 \pmod{q}$. \checkmark
+\end{itemize}
+Since $p \mid e_p(e_p-1)$ and $q \mid e_p(e_p-1)$ and $\gcd(p,q)=1$, we get $N \mid e_p(e_p-1)$. Similarly $e_q^2 = e_q$.
+
+Furthermore, $e_p \cdot e_q \equiv 0 \pmod{N}$: the product has a factor of $q$ from $e_p$ and a factor of $p$ from $e_q$, giving a factor of $pq = N$.
+
+\paragraph{The idempotent decomposition of $1$.} Note that:
+\[
+    e_p + e_q \equiv 1 \pmod{N}.
+\]
+This is because $(e_p + e_q) \equiv 1 \pmod{p}$ and $(e_p + e_q) \equiv 1 \pmod{q}$, so by CRT it equals $1$ mod $N$. Together, $\{e_p, e_q\}$ behave like $(1,0)$ and $(0,1)$ in $\mathbb{Z}_p \times \mathbb{Z}_q$ — they are the identity elements of the two components.
+
+\todo{Link CRT to shamir secret sharing, i feel like they looks the same, just lacking the connection}
+
+\subsection{Squaring in $\mathbb{Z}_N^*$ via CRT}
+
+The idempotent structure makes squaring transparent. If $x = x_p \cdot e_p + x_q \cdot e_q$, then:
+\[
+    x^2 = x_p^2 \cdot e_p^2 + 2x_p x_q \cdot e_p e_q + x_q^2 \cdot e_q^2
+        = x_p^2 \cdot e_p + x_q^2 \cdot e_q \pmod{N},
+\]
+since $e_p^2 = e_p$, $e_q^2 = e_q$, and $e_p e_q = 0$. So squaring in $\mathbb{Z}_N^*$ is just squaring component-wise in $\mathbb{Z}_p^* \times \mathbb{Z}_q^*$.
+
+\subsection{Quadratic Residues in $\mathbb{Z}_N^*$}
+
+\begin{proposition}
+    $a \in \mathbb{Z}_N^*$ is a quadratic residue mod $N$ if and only if it is a quadratic residue mod $p$ and mod $q$.
+\end{proposition}
+
+\begin{proof}
+    By the squaring observation above: $a = x^2$ in $\mathbb{Z}_N^*$ iff $(a_p, a_q) = (x_p^2, x_q^2)$ in $\mathbb{Z}_p^* \times \mathbb{Z}_q^*$, which holds iff $a_p$ is a QR mod $p$ and $a_q$ is a QR mod $q$.
+\end{proof}
+
+Since exactly $\frac{p-1}{2}$ elements of $\mathbb{Z}_p^*$ are QR mod $p$ (each QR has exactly two square roots $\pm x_p$), the number of QRs in $\mathbb{Z}_N^*$ is:
+\[
+    \frac{p-1}{2} \cdot \frac{q-1}{2} \;=\; \frac{\phi(N)}{4}.
+\]
+Moreover, each QR mod $N$ has exactly \emph{four} square roots in $\mathbb{Z}_N^*$: the four combinations $(\pm x_p, \pm x_q)$ reconstructed via CRT.
+
+\subsection{Summary: What CRT Buys You}
+
+\begin{center}
+\begin{tabular}{ll}
+    \hline
+    \textbf{Object in $\mathbb{Z}_N$} & \textbf{Meaning in $\mathbb{Z}_p \times \mathbb{Z}_q$} \\
+    \hline
+    $e_p, e_q$ & Primitive idempotents $(1,0)$, $(0,1)$ \\
+    $e_p + e_q = 1$ & Partition of unity \\
+    $e_p \cdot e_q = 0$ & Components are orthogonal \\
+    $a^2 \bmod N$ & $(a_p^2 \bmod p,\ a_q^2 \bmod q)$ \\
+    QR mod $N$ & QR mod $p$ \emph{and} mod $q$ \\
+    \# square roots of a QR & $4 = 2 \times 2$ \\
+    \hline
+\end{tabular}
+\end{center}
+
+The deeper point is that $\mathbb{Z}_N \cong \mathbb{Z}_p \times \mathbb{Z}_q$ as rings means \emph{all} ring-theoretic structure (units, squares, orders, idempotents) splits component-wise. CRT is not just a reconstruction formula --- it is a statement that $\mathbb{Z}_N$ is literally a product ring, and the idempotents $e_p, e_q$ are the algebraic witnesses to this decomposition.

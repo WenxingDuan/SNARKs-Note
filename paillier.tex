@@ -1,0 +1,74 @@
+%% ============================================================
+\section{Paillier Encryption}
+%% ============================================================
+
+Paillier encryption~\cite{Paillier1999} is an additively homomorphic public-key scheme based on the
+\emph{decisional composite residuosity} (DCR) assumption.
+
+%% ------------------------------------------------------------
+\subsection{Setup and Key Generation}
+
+Choose two large primes $p, q$ and set $n = pq$, $\lambda = \mathrm{lcm}(p-1,q-1)$.
+The public key is $n$ (and $g = n+1$ as a convenient generator of $\Z_{n^2}^*$);
+the secret key is $\lambda$.
+
+\todo{Fill in full keygen, encryption, decryption algorithms.}
+
+%% ------------------------------------------------------------
+\subsection{The DCR Assumption}
+
+\begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
+  \textbf{DCR assumption.} Given $n = pq$ and a random $z \in \Z_{n^2}^*$, it is hard to
+  decide whether $z$ is an $n$-th residue modulo $n^2$.
+\end{tcolorbox}
+
+\todo{State the assumption formally and sketch the reduction from DCR to IND-CPA security.}
+
+%% ------------------------------------------------------------
+\subsection{Additive Homomorphism}
+
+For ciphertexts $c_1 = \mathsf{Enc}(m_1)$ and $c_2 = \mathsf{Enc}(m_2)$:
+\[
+  c_1 \cdot c_2 \bmod n^2 \;=\; \mathsf{Enc}(m_1 + m_2 \bmod n).
+\]
+
+Scalar multiplication follows similarly: $c_1^k \bmod n^2 = \mathsf{Enc}(k \cdot m_1 \bmod n)$.
+
+\todo{Add worked example; note limitations (no multiplicative homomorphism).}
+
+%% ============================================================
+\section{Threshold Paillier}
+%% ============================================================
+
+Threshold Paillier distributes the secret key $\lambda$ among $n$ parties so that any $t$-of-$n$
+subset can jointly decrypt, but no coalition of fewer than $t$ parties learns anything about the
+plaintext.
+
+%% ------------------------------------------------------------
+\subsection{Motivation}
+
+\todo{Explain why threshold decryption matters (MPC, auctions, e-voting, collaborative SNARKs).}
+
+%% ------------------------------------------------------------
+\subsection{Key Generation and Share Distribution}
+
+\todo{
+  Describe the dealer model (or DKG variant).
+  Each party $i$ holds a share $\lambda_i$ such that the shares Shamir-interpolate to $\lambda$.
+}
+
+%% ------------------------------------------------------------
+\subsection{Partial Decryption and Combining}
+
+Each party $i$ holding share $\lambda_i$ computes a \emph{decryption share} $\delta_i$ from
+ciphertext $c$.  A combiner then aggregates any $t$ valid shares to recover $m$.
+
+\todo{Write out the partial decryption formula and the Lagrange-interpolation combination step.}
+
+%% ------------------------------------------------------------
+\subsection{Security}
+
+\todo{
+  State the threshold security game: semantic security holds as long as the adversary corrupts
+  fewer than $t$ parties.  Reference Shoup's 2000 practical threshold RSA/Paillier result.
+}

@@ -1,0 +1,35 @@
+% macro2.tex -- macros for threshold cryptography notes
+
+%% ================================================================
+%%  Theorem-like environments (extends macro.tex)
+%% ================================================================
+\newtheorem{proposition}{Proposition}
+
+%% ================================================================
+%%  Algorithms
+%% ================================================================
+\newcommand{\Enc}{\mathsf{Enc}}
+\newcommand{\Dec}{\mathsf{Dec}}
+\newcommand{\KeyGen}{\mathsf{KeyGen}}
+\newcommand{\PartDec}{\mathsf{PartDec}}
+\newcommand{\Combine}{\mathsf{Combine}}
+
+%% ================================================================
+%%  Keys and parameters
+%% ================================================================
+\newcommand{\pk}{\mathsf{pk}}
+\newcommand{\sk}{\mathsf{sk}}
+\newcommand{\N}{\mathbb{N}}   % modulus n (as a set/ring, avoid collision with \n)
+
+%% ================================================================
+%%  Paillier ciphertext space
+%% ================================================================
+\newcommand{\Zns}{\Z_{n^2}}          % Z_{n^2}
+\newcommand{\Znss}{\Z_{n^2}^{*}}     % Z_{n^2}^*
+\newcommand{\Zn}{\Z_{n}}
+
+%% ================================================================
+%%  Threshold / secret sharing
+%% ================================================================
+\newcommand{\share}[1]{\langle #1 \rangle}   % secret share notation
+\newcommand{\thr}{t}                          % threshold parameter
