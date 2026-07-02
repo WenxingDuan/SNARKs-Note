@@ -2,47 +2,137 @@
 \section{Paillier Encryption}
 %% ============================================================
 
+\todo{To include a leading example of homomorphism of RSA and but it only brings about
+multiplicative, then talks about GM encryption and its homomorphism, and finally some
+intuition why paillier construction brings additive}
+
 Paillier encryption~\cite{Paillier1999} is an additively homomorphic public-key scheme based on the
 \emph{decisional composite residuosity} (DCR) assumption.
 
 %% ------------------------------------------------------------
 \subsection{Setup and Key Generation}
 
-Choose two large primes $p, q$ and set $n = pq$, $\lambda = \mathrm{lcm}(p-1,q-1)$.
-The public key is $n$ (and $g = n+1$ as a convenient generator of $\Z_{n^2}^*$);
-the secret key is $\lambda$.
+The key generation algorithm proceeds as follows.
 
-\todo{Fill in full keygen, encryption, decryption algorithms.}
+\begin{enumerate}
+  \item Sample large primes $p, q$ satisfying $\gcd(pq,\, (p-1)(q-1)) = 1$, and set $n = pq$.
+  \item Compute $\lambda \gets \mathrm{lcm}(p-1,\, q-1)$.
+  \item Sample $g \gets \Z_{n^2}^*$ uniformly at random.
+  \item Compute $\mu \gets \bigl(L(g^\lambda \bmod n^2)\bigr)^{-1} \bmod n$, where
+        $L(x) \coloneqq \lfloor (x-1)/n \rfloor$.
+        (This requires $L(g^\lambda \bmod n^2)$ to be invertible mod $n$; resample $g$ if not.)
+  \item Return $pk \gets (n, g)$ and $sk \gets (\lambda, \mu)$.
+\end{enumerate}
+
+\begin{remark}[Simplified generator]
+  The common choice $g = 1 + n$ is always valid and simplifies both key generation and
+  decryption. Since $(1+n)^m \equiv 1 + mn \pmod{n^2}$ (Lemma~\ref{lem:binomial} below),
+  one obtains $L(g^\lambda \bmod n^2) = \lambda \bmod n$, so $\mu = \lambda^{-1} \bmod n$
+  is computable directly without sampling. The security level is identical; see
+  Remark~\ref{rem:g-security}.
+\end{remark}
+
+\paragraph{Encryption.}
+$\mathsf{Enc}(pk, m \in \Z_n)$: sample $r \gets \Z_n^*$ and return
+\[
+  c \;\equiv_{n^2}\; g^m \cdot r^n.
+\]
+
+\paragraph{Decryption.}
+$\mathsf{Dec}(sk, c)$: compute
+\[
+  m \;\gets\; L\!\left(c^\lambda \bmod n^2\right) \cdot \mu \bmod n.
+\]
+
+\paragraph{Correctness.}
+We use the following key lemma.
+
+\begin{lemma}[Binomial structure of $\langle 1+n \rangle$]
+\label{lem:binomial}
+  For any $w \in \Z_{n^2}^*$, write its unique factorization in the direct product
+  $\Z_{n^2}^* \cong \langle 1+n \rangle \times H$ (where $H = \{r^n : r \in \Z_n^*\}$ is
+  the subgroup of $n$-th powers) as $w = (1+n)^{[w]} \cdot h$ for $[w] \in \Z_n$ and $h \in H$.
+  Then:
+  \begin{enumerate}
+    \item $(1+n)^k \equiv 1 + kn \pmod{n^2}$ for all $k \in \Z$.
+    \item $h^{n\lambda} \equiv 1 \pmod{n^2}$ for all $h \in H$.
+    \item $L(w^\lambda \bmod n^2) = \lambda [w] \bmod n$.
+  \end{enumerate}
+\end{lemma}
+
+\begin{proof}
+  \textbf{(i)} By the binomial theorem,
+  $(1+n)^k = \sum_{j=0}^{k} \binom{k}{j} n^j \equiv 1 + kn \pmod{n^2}$,
+  since all terms with $j \ge 2$ are divisible by $n^2$.
+
+  \textbf{(ii)} Any $h \in H$ has the form $h = r^n$ for $r \in \Z_n^*$. The element
+  $r^n \in \Z_{n^2}^*$ has order dividing $\phi(n)$ (by Carmichael's theorem applied to
+  $n^2$ together with the condition $\gcd(n, \phi(n)) = 1$), and $\lambda \mid \phi(n)$,
+  so $h^\lambda = r^{n\lambda} \equiv 1 \pmod{n^2}$.
+
+  \textbf{(iii)} Write $w = (1+n)^{[w]} \cdot h$. Then
+  $w^\lambda = (1+n)^{[w]\lambda} \cdot h^\lambda = (1+n)^{[w]\lambda}$
+  by (ii). Applying (i): $(1+n)^{[w]\lambda} \equiv 1 + [w]\lambda n \pmod{n^2}$,
+  so $L(w^\lambda) = [w]\lambda \bmod n$.
+\end{proof}
+
+Correctness of decryption now follows immediately: $c = g^m r^n$ gives
+$[c] = m[g]$ (since $[r^n] = 0$), so
+\[
+  L(c^\lambda) \cdot \mu
+  = \lambda[c] \cdot \mu
+  = \lambda m [g] \cdot (L(g^\lambda))^{-1}
+  = \lambda m [g] \cdot (\lambda [g])^{-1}
+  = m \bmod n.
+\]
 
 %% ------------------------------------------------------------
 \subsection{The DCR Assumption}
 
 \begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
-  \textbf{DCR assumption.} Given $n = pq$ and a random $z \in \Z_{n^2}^*$, it is hard to
-  decide whether $z$ is an $n$-th residue modulo $n^2$.
+  \textbf{DCR assumption.} Given $n = pq$ and a random $z \gets \Z_{n^2}^*$, no
+  probabilistic polynomial-time algorithm can decide whether $z$ is an $n$-th power
+  modulo $n^2$ with advantage non-negligibly greater than $\tfrac{1}{2}$.
 \end{tcolorbox}
 
+The $n$-th powers in $\Z_{n^2}^*$ form the subgroup $H = \{r^n \bmod n^2 : r \in \Z_n^*\}$
+of index $n$ and order $\phi(n)$; the DCR assumption says the $n$ cosets of $H$ are
+computationally indistinguishable.
+
 \todo{State the assumption formally and sketch the reduction from DCR to IND-CPA security.}
+
+\begin{remark}[Security with $g = 1+n$]
+\label{rem:g-security}
+  Using $g = 1+n$ does not weaken security. The ciphertext $c = (1+mn) \cdot r^n$ is
+  uniformly random within the coset $(1+mn) \cdot H$. Under DCR, these cosets are
+  computationally indistinguishable, so an adversary cannot determine $m$ from $c$
+  regardless of which valid $g$ is used. The coset structure is determined entirely by
+  $r^n$, not by the choice of $g$.
+\end{remark}
 
 %% ------------------------------------------------------------
 \subsection{Additive Homomorphism}
 
-For ciphertexts $c_1 = \mathsf{Enc}(m_1)$ and $c_2 = \mathsf{Enc}(m_2)$:
+For ciphertexts $c_1 = \mathsf{Enc}(m_1, r_1)$ and $c_2 = \mathsf{Enc}(m_2, r_2)$:
 \[
-  c_1 \cdot c_2 \bmod n^2 \;=\; \mathsf{Enc}(m_1 + m_2 \bmod n).
+  c_1 \cdot c_2 \bmod n^2
+  = g^{m_1} r_1^n \cdot g^{m_2} r_2^n
+  = g^{m_1+m_2} (r_1 r_2)^n
+  = \mathsf{Enc}(m_1 + m_2 \bmod n,\; r_1 r_2).
 \]
-
-Scalar multiplication follows similarly: $c_1^k \bmod n^2 = \mathsf{Enc}(k \cdot m_1 \bmod n)$.
-
-\todo{Add worked example; note limitations (no multiplicative homomorphism).}
+Scalar multiplication follows similarly:
+\[
+  c_1^k \bmod n^2 = g^{km_1}(r_1^k)^n = \mathsf{Enc}(k \cdot m_1 \bmod n,\; r_1^k).
+\]
+Both operations require only the public key and leave the randomness well-distributed.
 
 %% ============================================================
 \section{Threshold Paillier}
 %% ============================================================
 
-Threshold Paillier distributes the secret key $\lambda$ among $n$ parties so that any $t$-of-$n$
-subset can jointly decrypt, but no coalition of fewer than $t$ parties learns anything about the
-plaintext.
+Threshold Paillier distributes the secret key $\lambda$ among $\ell$ parties so that any
+$t$-of-$\ell$ subset can jointly decrypt, but no coalition of fewer than $t$ parties learns
+anything about the plaintext.
 
 %% ------------------------------------------------------------
 \subsection{Motivation}
@@ -52,23 +142,189 @@ plaintext.
 %% ------------------------------------------------------------
 \subsection{Key Generation and Share Distribution}
 
-\todo{
-  Describe the dealer model (or DKG variant).
-  Each party $i$ holds a share $\lambda_i$ such that the shares Shamir-interpolate to $\lambda$.
-}
+We describe the \emph{trusted dealer} model; see Remark~\ref{rem:dkg} for the DKG variant.
+
+\begin{enumerate}
+  \item Run Paillier key generation to obtain $pk = (n, g)$ and $sk = (\lambda, \mu)$.
+    Publish $pk$.
+  \item Sample a random degree-$(t-1)$ polynomial $f \in \Z_{\phi(n)n}[X]$ with
+    $f(0) = \phi(n)$ (so $sk = \phi(n)$).
+    \todo{why this sharing is not in field? is it still perfectly secure?}
+  \item For each party $i \in [\ell]$, set $sk_i \gets f(i) \bmod \phi(n)n$ and send $sk_i$
+    privately to party $i$.
+  \item Erase $f$ and $sk$.
+\end{enumerate}
+
+Set $\Delta \coloneqq \ell!$. For any subset $S \subseteq [\ell]$ with $|S| = t$ and any
+$i \in S$, define the \emph{normalized Lagrange coefficient}
+\[
+  \Lambda_i(0) \;\coloneqq\; \Delta \cdot \lambda_i^S(0)
+  \;=\; \Delta \prod_{j \in S \setminus \{i\}} \frac{-j}{i-j} \;\in\; \Z,
+\]
+which is always an integer since all denominators divide $\Delta = \ell!$.
+
+\begin{remark}[DKG variant]
+\label{rem:dkg}
+To be completed
+  % In the \emph{distributed key generation} (DKG) setting, no trusted dealer is assumed.
+  % The parties jointly generate $(pk, sk_1, \dots, sk_\ell)$ via an MPC protocol such that
+  % $sk$ never appears in the clear. For Paillier this is significantly harder than for
+  % DL-based schemes, as it requires distributed generation of an RSA modulus $n = pq$
+  % without any party knowing $p$ or $q$; see~\cite{BonehFranklin1997} and subsequent work.
+  % In most practical deployments of threshold Paillier, a trusted dealer is assumed for
+  % the setup phase.
+\end{remark}
 
 %% ------------------------------------------------------------
 \subsection{Partial Decryption and Combining}
 
-Each party $i$ holding share $\lambda_i$ computes a \emph{decryption share} $\delta_i$ from
-ciphertext $c$.  A combiner then aggregates any $t$ valid shares to recover $m$.
+Given a ciphertext $c$ and a set $S$ of $t$ participating parties, decryption proceeds as
+follows.
 
-\todo{Write out the partial decryption formula and the Lagrange-interpolation combination step.}
+\paragraph{Partial decryption.}
+Each party $i \in S$ computes its \emph{decryption share}:
+\[
+  c_i \;\equiv_{n^2}\; c^{2\Delta \cdot sk_i}.
+\]
+(The factor of $2$ is a technicality to ensure certain divisibility conditions; see
+Shoup~\cite{Shoup2000}.)
+
+\paragraph{Combining.}
+The combiner computes:
+\[
+  \hat{m} \;\equiv_{n^2}\; \prod_{i \in S} c_i^{2\Lambda_i(0)}.
+\]
+Since $\sum_{i \in S} sk_i \cdot \Lambda_i(0) = \Delta \cdot sk$ by Lagrange interpolation,
+the product evaluates to $c^{4\Delta^2 \cdot sk}$. Applying $L$ and scaling by the
+appropriate precomputed constant recovers $m$.
+
+\paragraph{Why integer exponents suffice.}
+The Lagrange coefficients $\lambda_i^S(0)$ are rational in general. Multiplying by
+$\Delta = \ell!$ clears all denominators (since differences $i - j$ for $i,j \in [\ell]$
+divide $\ell!$), making $\Lambda_i(0) \in \Z$. This avoids the need to compute modular
+inverses in $\Z_{n^2}^*$, which would require knowing $\phi(n^2)$ and hence the
+factorization of $n$ --- precisely the secret we are trying to protect.
+
+%% ------------------------------------------------------------
+\subsection{Semi-Honest Security and Simulation}
+
+The scheme above is secure against \emph{semi-honest} adversaries who corrupt up to $t-1$
+parties and follow the protocol honestly but try to learn the plaintext from their views.
+Security is proved by a reduction to plain Paillier IND-CPA security.
+
+\paragraph{The reduction.}
+The reduction is given a plain Paillier public key $N$ and access to a CPA challenge oracle.
+It must simulate the entire threshold decryption game for an adversary $A$ who corrupts a
+set $C \subseteq [\ell]$ with $|C| \leq t-1$.
+
+\begin{enumerate}
+  \item \textbf{Setup.} Sample $\Theta \leftarrow \Z_N$ and set $pk = (N, \Theta)$.
+    For each corrupted party $i \in C$, sample $sk_i \leftarrow \Z_{N^2}$ uniformly and
+    hand these to $A$. The reduction does not know the real $sk = \phi(N)$.
+
+  \item \textbf{Decryption queries.} When $A$ asks for a decryption of message $m$, the
+    reduction:
+    \begin{enumerate}[(a)]
+      \item Samples $r \leftarrow \Z_N$ and computes $c \equiv_{N^2} (1+mN) \cdot r^N$
+        (possible using only $pk = N$).
+      \item For each honest party $j \notin C$, computes the simulated share:
+        \[
+          c_j \;\equiv_{N^2}\;
+          (1 + Nm\Theta)^{\Lambda_0(j)} \cdot \prod_{i \in C} c^{sk_i \cdot \Lambda_i(j)},
+        \]
+        where $\Lambda_0(j) = \Delta \prod_{k \in C} \frac{j-k}{0-k}$ and
+        $\Lambda_i(j) = \Delta \cdot \frac{j}{i} \prod_{k \in C \setminus \{i\}} \frac{j-k}{i-k}$
+        are normalized Lagrange coefficients for evaluating at $j$ from the set $C \cup \{0\}$.
+    \end{enumerate}
+    The key insight is that by Lemma~\ref{lem:binomial},
+    $c^{sk} = (1+mN)^{\phi(N)} \equiv 1 + mN\phi(N) \equiv 1 + mN\Theta \pmod{N^2}$
+    (since $\Theta = \phi(N) \bmod N$ in the real scheme, and here $\Theta$ plays this role).
+    So the simulator expresses the honest party's contribution via $m$ and $\Theta$ alone,
+    without needing $sk$.
+
+  \item \textbf{Challenge.} $A$ sends $(m_0, m_1) \in \Z_N^2$. The reduction forwards
+    $(\Theta\Delta^2 m_0 \bmod N,\ \Theta\Delta^2 m_1 \bmod N)$ to the plain Paillier CPA
+    oracle and receives $c_b^*$. It forwards $c_b^*$ to $A$ as the challenge ciphertext,
+    along with simulated shares computed as above. The messages are scaled by $\Theta\Delta^2$
+    because the simulation introduces these extra factors: the combiner ultimately recovers
+    $m\Delta^2\Theta \bmod N$ rather than $m$, so the challenge must be embedded accordingly.
+
+  \item \textbf{Output.} $A$ outputs a guess $b'$; the reduction forwards it to the CPA
+    challenger. Any advantage of $A$ translates directly to an advantage against plain
+    Paillier IND-CPA.
+\end{enumerate}
+
+\begin{remark}[Why the simulation works]
+  The simulated shares $c_j$ are indistinguishable from real ones because the honest
+  party's share is determined by Lagrange interpolation --- from $A$'s view (which includes
+  only the corrupted shares and the output), there is exactly one consistent value for each
+  honest share, and the simulator produces exactly that value. No information about $sk$
+  leaks beyond what is already implied by the corrupted shares and $m$.
+\end{remark}
+
+%% ------------------------------------------------------------
+\subsection{Achieving Malicious Security via Verifiable Partial Decryptions}
+
+The semi-honest scheme above fails against \emph{malicious} adversaries: a corrupt party
+can submit an arbitrary $c_i' \neq c^{2\Delta \cdot sk_i}$ as its decryption share,
+causing the combiner to reconstruct a bogus plaintext with no way to detect the fault.
+To achieve malicious security, each partial decryption must come with a proof of
+correctness.
+
+\paragraph{Intuition.}
+At setup the dealer publishes, alongside each share $sk_i$, a \emph{verification key}
+$pk_i = v^{\Delta \cdot sk_i}$, where $v$ is a public generator of the subgroup
+$\mathbb{Q}_{N^2}$ of quadratic residues modulo $N^2$.  When party $i$ submits
+$c_i \equiv_{N^2} c^{2\Delta \cdot sk_i}$, any combiner can check consistency by
+verifying that $c_i^2$ and $pk_i$ share the same discrete logarithm --- namely
+$\Delta \cdot sk_i$ --- with respect to the bases $c^{4\Delta}$ and $v^{\Delta}$
+respectively.  This is a \emph{proof of discrete-log equality (DLEQ)}: a
+zero-knowledge argument that
+\[
+  \log_{c^{4\Delta}} c_i^2 \;=\; \log_{v^{\Delta}} pk_i \;=\; sk_i.
+\]
+A forged share $c_i' \neq c^{2\Delta \cdot sk_i}$ would require producing a valid DLEQ
+proof for an incorrect relation, which is computationally infeasible under the
+discrete-logarithm assumption in $\mathbb{Q}_{N^2}$.
+
+\paragraph{Why safe primes and a special $g$?}
+Standard DLEQ / Chaum--Pedersen proofs require working in a group of \emph{known} prime
+order.  In $\mathbb{Z}_{N^2}^*$ the group order $\phi(N^2)$ is unknown (knowing it
+factors $N$).  Two modifications address this:
+\begin{enumerate}
+  \item \textbf{Safe primes.} Choose $p = 2p'+1$ and $q = 2q'+1$ with $p', q'$ prime.
+    Then $\mathbb{Q}_{N^2}$ has order $m = p'q' = N\phi(N)/4$, which is a product of two
+    large primes.  Even though $m$ is unknown to the prover and verifier, the group has
+    no small subgroups, which is the key property needed for the soundness argument.
+  \item \textbf{Special generator.} Pick $g \equiv_{N^2} (1+N)^a b^N$ for $b \in \Z_N^*$
+    and set $v = g^{2\alpha}$ for random $\alpha \in \Z_N^*$.  This ensures $v$ generates
+    $\mathbb{Q}_{N^2}$ and, crucially, the reduction knows $\log_g v = 2\alpha$, which is
+    needed to embed the DLEQ proof into a security argument against a plain-Paillier
+    CPA adversary.
+\end{enumerate}
+
+\paragraph{Extra factors of $2$ and $4$.}
+The exponent $2\Delta$ (rather than $\Delta$) in $c_i = c^{2\Delta \cdot sk_i}$ ensures
+$c_i \in \mathbb{Q}_{N^2}$ (squaring maps any element into the QR subgroup), so that
+DLEQ can be stated entirely within $\mathbb{Q}_{N^2}$.  The DLEQ proof itself introduces
+a further squaring, so the combiner ultimately recovers $c^{4\Delta^2 \cdot sk}$ and must
+divide out the extra factor of $4\Delta^2$ to obtain $m$.
+
+\todo{
+  Add the full description of the DLEQ proof used here. This is a zero-knowledge proof
+  in the style of Chaum--Pedersen~\cite{ChaumPedersen1992}, adapted to a group of
+  \emph{unknown} order. The key difference from the standard construction is that the
+  challenge must be drawn from a sufficiently small set (e.g.\ $\{0,1\}^k$ for security
+  parameter $k$) so that soundness holds even without knowing the group order; the
+  completeness and zero-knowledge properties carry over unchanged. See
+  Shoup~\cite{Shoup2000} for the full details and the soundness proof in this setting.
+}
 
 %% ------------------------------------------------------------
 \subsection{Security}
 
 \todo{
-  State the threshold security game: semantic security holds as long as the adversary corrupts
-  fewer than $t$ parties.  Reference Shoup's 2000 practical threshold RSA/Paillier result.
+  State the threshold security game: semantic security holds as long as the adversary
+  corrupts fewer than $t$ parties. Reference Shoup's 2000 practical threshold
+  RSA/Paillier result.
 }

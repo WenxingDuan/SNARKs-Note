@@ -2,7 +2,7 @@
 
 \subsection{The Ring Isomorphism}
 
-Let $N = pq$ with $p, q$ distinct odd primes and $\gcd(p,q) = 1$. The \textbf{Chinese Remainder Theorem (CRT)} gives a ring isomorphism:
+Let $N = pq$ with $\gcd(p,q) = 1$. The \textbf{Chinese Remainder Theorem (CRT)} gives a ring isomorphism $\varphi$:
 \[
     \mathbb{Z}_N \;\cong\; \mathbb{Z}_p \times \mathbb{Z}_q,
     \qquad
@@ -12,6 +12,24 @@ This is a ring isomorphism: it respects both addition and multiplication. Restri
 \[
     \mathbb{Z}_N^* \;\cong\; \mathbb{Z}_p^* \times \mathbb{Z}_q^*.
 \]
+
+\begin{proof}
+\textbf{Homomorphism.} Reduction mod $p$ and mod $q$ each preserve $+$ and $\times$, so $\varphi$ does too.
+ 
+\textbf{Injective.} Suppose $\varphi(a) = (0, 0)$, i.e.\ $p \mid a$ and $q \mid a$.
+Since $\gcd(p, q) = 1$, we get $pq \mid a$, hence $a \equiv 0 \pmod{N}$.
+So $\ker \varphi = \{0\}$.
+ 
+\textbf{Surjective.} Both sides have the same finite size:
+$|\mathbb{Z}_N| = N = pq = |\mathbb{Z}_p \times \mathbb{Z}_q|$.
+Injectivity on finite sets of equal size implies surjectivity.
+\end{proof}
+ 
+\begin{remark}
+The only non-trivial step is injectivity, which uses $\gcd(p,q)=1$.
+This is why CRT fails for prime powers: $\mathbb{Z}_{p^2} \not\cong \mathbb{Z}_p \times \mathbb{Z}_p$,
+since $p \mid a$ and $p \mid a$ does not imply $p^2 \mid a$.
+\end{remark}
 
 \subsection{The Reconstruction Formula and Idempotents}
 
@@ -70,6 +88,8 @@ Since exactly $\frac{p-1}{2}$ elements of $\mathbb{Z}_p^*$ are QR mod $p$ (each 
 \]
 Moreover, each QR mod $N$ has exactly \emph{four} square roots in $\mathbb{Z}_N^*$: the four combinations $(\pm x_p, \pm x_q)$ reconstructed via CRT.
 
+\todo{add a part explaining QR is equivalent to solving large prime factoring}
+
 \subsection{Summary: What CRT Buys You}
 
 \begin{center}
@@ -86,5 +106,3 @@ Moreover, each QR mod $N$ has exactly \emph{four} square roots in $\mathbb{Z}_N^
     \hline
 \end{tabular}
 \end{center}
-
-The deeper point is that $\mathbb{Z}_N \cong \mathbb{Z}_p \times \mathbb{Z}_q$ as rings means \emph{all} ring-theoretic structure (units, squares, orders, idempotents) splits component-wise. CRT is not just a reconstruction formula --- it is a statement that $\mathbb{Z}_N$ is literally a product ring, and the idempotents $e_p, e_q$ are the algebraic witnesses to this decomposition.
