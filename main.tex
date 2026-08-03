@@ -1,3 +1,4 @@
+% !TeX program = pdflatex
 \documentclass[11pt]{article}
 \usepackage[a4paper,margin=1in]{geometry}
 \usepackage[T1]{fontenc}
@@ -43,23 +44,25 @@
 \tableofcontents
 \newpage
 
-\input{s1_overview}
-\input{zero_knowledge}
-\input{foundations}
-\input{s2_algebra}
-\input{s3_pcs}
-\input{s4_iop_paradigm}
-\input{s5_gadgets}
-\input{s6_plonk}
-\input{s7_groth16}
-\input{s8_fri}
-\input{s9_synthesis}
+% Main chapters
+\input{chapters/ch01_overview}
+\input{chapters/ch02_zero_knowledge}
+\input{chapters/ch03_foundations}
+\input{chapters/ch04_algebra}
+\input{chapters/ch05_polynomial_commitments}
+\input{chapters/ch06_iop_paradigm}
+\input{chapters/ch07_proof_gadgets}
+\input{chapters/ch08_plonk}
+\input{chapters/ch09_groth16}
+\input{chapters/ch10_fri}
+\input{chapters/ch11_synthesis}
 
 \appendix
-\input{appendix_a_bulletproofs}
-\input{appendix_b_plonk}
-\input{appendix_c_r1cs_qap}
-\input{appendix_d_fri}
+% Worked appendices
+\input{appendices/app_a_bulletproofs}
+\input{appendices/app_b_plonk}
+\input{appendices/app_c_r1cs_qap}
+\input{appendices/app_d_fri}
 
 \bibliographystyle{alpha}
 \bibliography{references,zero_knowledge_references}
