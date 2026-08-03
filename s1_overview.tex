@@ -1,4 +1,4 @@
-﻿\section{Overview and Big Picture}
+\section{Overview and Big Picture}
 
 A preprocessing SNARK is a proof system for statements of the form
 \[
@@ -9,7 +9,7 @@ where $x$ is public, $w$ is secret, and $C$ is an arithmetic circuit over a fini
 These notes unfold in two broad movements. We begin with zero knowledge itself: first in the interactive setting, tracing the idea from cave-and-door intuition through sigma protocols and the Schnorr identification scheme, then crossing to the non-interactive setting via the common reference string. This foundation motivates every design choice in the systems that follow.
 
 We then study SNARKs proper, organized by four principal technical routes through which non-interactive zero-knowledge proofs have been made succinct and practical:
-\begin{enumerate}[leftmargin=2em]
+\begin{enumerate}
     \item \textbf{Polynomial IOP + Polynomial Commitment Scheme.} The prover commits to witness polynomials and answers evaluation queries; soundness reduces to the binding property of the commitment. Plonk and Marlin are the canonical examples.
     \item \textbf{Linear PCP + Bilinear Pairing.} The statement is compiled into a quadratic arithmetic program, encoded as a linear PCP, and verified in a single pairing check. Groth16 and its predecessors (Pinocchio, PGHR13) follow this route.
     \item \textbf{Folding Schemes for Incrementally Verifiable Computation.} Rather than proving each step independently, the prover \emph{folds} two instances of a relaxed constraint system into one, accumulating computation cheaply and deferring the final SNARK to a single step. Nova is the prototype of this paradigm.
