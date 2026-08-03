@@ -1,4 +1,4 @@
-\section{Chinese Remainder Theorem and the Structure of $\mathbb{Z}_N^*$}
+\section{Chinese Remainder Theorem and the Structure of \texorpdfstring{$\mathbb{Z}_N^*$}{the unit group modulo N}}
 
 \subsection{The Ring Isomorphism}
 
@@ -61,9 +61,11 @@ Furthermore, $e_p \cdot e_q \equiv 0 \pmod{N}$: the product has a factor of $q$ 
 \]
 This is because $(e_p + e_q) \equiv 1 \pmod{p}$ and $(e_p + e_q) \equiv 1 \pmod{q}$, so by CRT it equals $1$ mod $N$. Together, $\{e_p, e_q\}$ behave like $(1,0)$ and $(0,1)$ in $\mathbb{Z}_p \times \mathbb{Z}_q$ — they are the identity elements of the two components.
 
-\todo{Link CRT to shamir secret sharing, i feel like they looks the same, just lacking the connection}
+\begin{remark}[Relation to Shamir secret sharing]
+CRT reconstruction and Shamir reconstruction both express a global value as a linear combination of local coordinates. The analogy stops there. CRT coordinates are residues modulo pairwise coprime moduli, and the coefficients are orthogonal idempotents. Shamir shares are evaluations of one low-degree polynomial over a field, and the coefficients are Lagrange interpolation weights. In particular, Shamir's threshold privacy follows from the undetermined coefficients of a random polynomial; it does not follow merely from CRT.
+\end{remark}
 
-\subsection{Squaring in $\mathbb{Z}_N^*$ via CRT}
+\subsection{Squaring in \texorpdfstring{$\mathbb{Z}_N^*$}{the unit group modulo N} via CRT}
 
 The idempotent structure makes squaring transparent. If $x = x_p \cdot e_p + x_q \cdot e_q$, then:
 \[
@@ -72,7 +74,7 @@ The idempotent structure makes squaring transparent. If $x = x_p \cdot e_p + x_q
 \]
 since $e_p^2 = e_p$, $e_q^2 = e_q$, and $e_p e_q = 0$. So squaring in $\mathbb{Z}_N^*$ is just squaring component-wise in $\mathbb{Z}_p^* \times \mathbb{Z}_q^*$.
 
-\subsection{Quadratic Residues in $\mathbb{Z}_N^*$}
+\subsection{Quadratic Residues in \texorpdfstring{$\mathbb{Z}_N^*$}{the unit group modulo N}}
 
 \begin{proposition}
     $a \in \mathbb{Z}_N^*$ is a quadratic residue mod $N$ if and only if it is a quadratic residue mod $p$ and mod $q$.
@@ -88,7 +90,7 @@ Since exactly $\frac{p-1}{2}$ elements of $\mathbb{Z}_p^*$ are QR mod $p$ (each 
 \]
 Moreover, each QR mod $N$ has exactly \emph{four} square roots in $\mathbb{Z}_N^*$: the four combinations $(\pm x_p, \pm x_q)$ reconstructed via CRT.
 
-\todo{add a part explaining QR is equivalent to solving large prime factoring}
+Knowing the factorization $N=pq$ makes residuosity testing and square-root extraction efficient: test each CRT component with the corresponding prime-field criterion, extract roots modulo $p$ and $q$, and recombine them. Conversely, an algorithm that returns square roots of random quadratic residues modulo a Blum integer yields a probabilistic factoring algorithm: for random $x$, obtain a root $y$ of $x^2$; whenever $y\not\equiv\pm x\pmod N$, the value $\gcd(x-y,N)$ is a nontrivial factor. This is a reduction for square-root extraction, not a blanket claim that every formulation of the quadratic-residuosity decision problem is equivalent to factoring.
 
 \subsection{Summary: What CRT Buys You}
 

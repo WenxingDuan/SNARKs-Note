@@ -3,8 +3,6 @@
 
 \subsection{A pedagogical one-column Plonk arithmetization}
 
-\todo{change this section to fully reflect the real plonk left/right/output column }
-
 This section presents a pedagogical one-column version of Plonk. Real Plonkish systems usually use several witness columns and row-wise gate identities; the one-column presentation below is meant to make the algebraic dependencies visible before introducing production-level notation.
 
 Plonk can be presented as a polynomial IOP for arithmetic circuits. Consider the circuit
@@ -94,7 +92,6 @@ S(y)\bigl(T(y)+T(\omega y)\bigr)
 -T(\omega^2y)=0.
 \]
 
-\todo{I think this equation is not correct}
 If $S(y)=1$, this says left plus right equals output. If $S(y)=0$, it says left times right equals output.
 
 \subsubsection*{(3) Wiring correctness}
@@ -174,14 +171,14 @@ A representative custom gate has the form
 \]
 Such identities are simply added to the gate-check polynomial.
 
-HyperPlonk-style systems replace the univariate subgroup domain by the Boolean hypercube $\set{0,1}^t$ and replaces univariate ZeroTests by multilinear SumCheck protocols. The motivation is to reduce prover time by avoiding some expensive univariate quotient computations.
+HyperPlonk-style systems replace the univariate subgroup domain by the Boolean hypercube $\set{0,1}^t$ and replace univariate ZeroTests by multilinear SumCheck protocols. The motivation is to reduce prover time by avoiding some expensive univariate quotient computations.
 
 \subsection{Choice of PCS determines the concrete SNARK}
 
 One of the deepest practical lessons is that the same underlying Plonk IOP can be combined with different commitment layers:
 \begin{itemize}[leftmargin=2em]
     \item \textbf{Plonk + KZG} gives short proofs and very fast verification, but needs a trusted setup \cite{KateZaveruchaGoldberg2010,GabizonWilliamsonCiobotaru2019}.
-    \item \textbf{Plonk + IPA/Bulletproof-style PCS} gives transparency but slower verification \cite{Bulletproofs2018}.
+    \item \textbf{Plonk + IPA PCS} gives transparency but slower verification \cite{Bulletproofs2018}.
     \item \textbf{Plonk + FRI} gives transparency and plausible post-quantum security, but larger proofs \cite{BenSassonBentovHoreshRiabzev2018FRI}.
 \end{itemize}
 

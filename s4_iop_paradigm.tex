@@ -1,4 +1,22 @@
-﻿\section{Polynomial IOPs and the IOP-to-SNARK Paradigm}
+\section{Polynomial IOPs and the IOP-to-SNARK Paradigm}
+
+\subsection{The PCP theorem and local verification}
+
+For functions $r,q:\mathbb{N}\to\mathbb{N}$, the class $\mathrm{PCP}(r(n),q(n))$ contains languages decided by polynomial-time probabilistic verifiers that use at most $r(n)$ random bits and query at most $q(n)$ symbols of a proof oracle. The identity
+\[
+\mathrm{NP}=\mathrm{PCP}(0,\operatorname{poly}(n))
+\]
+is essentially the definition of NP: one direction reads an ordinary polynomial-size witness in full, while the other records the polynomially many fixed positions read by a deterministic oracle verifier and uses their contents as an NP witness.
+
+The PCP theorem is the much stronger statement
+\begin{tcolorbox}
+\[
+\mathrm{NP}=\mathrm{PCP}(O(\log n),O(1)).
+\]
+\end{tcolorbox}
+Completeness can be made $1$, while a constant soundness gap can be amplified by repetition. The nontrivial direction constructs a redundant encoding of an NP witness in which a constant number of local consistency checks detect any globally inconsistent proof with constant probability \cite{AroraSafra1998,AroraLundMotwaniSudanSzegedy1998}.
+
+This local-to-global principle is the information-theoretic ancestor of modern IOPs. Kilian's argument makes the cryptographic bridge explicit: commit to a PCP oracle with a Merkle tree, reveal only the verifier's queried symbols and authentication paths, and thereby obtain succinct communication from a locally checkable proof \cite{Kilian1992}. IOPs retain the oracle viewpoint but allow several rounds of oracle messages and challenges; polynomial IOPs further exploit algebraic structure in those oracles.
 
 \subsection{Interactive proofs, IOPs, and polynomial IOPs}
 
@@ -26,13 +44,13 @@ Suppose a polynomial IOP commits to $t$ polynomials and the verifier needs $q$ e
     \item the IOP's verifier logic is run on the opened values.
 \end{itemize}
 
-If the IOP is public coin, the Fiat-Shamir transform removes interaction by deriving verifier challenges from a hash of the transcript \cite{FiatShamir1986}:
+If the IOP is public coin, the Fiat--Shamir transform removes interaction by deriving verifier challenges from a hash of the transcript \cite{FiatShamir1986}:
 \[
  r_1 = H(C,x,\mathsf{com}_1,\dots),\qquad
  r_2 = H(C,x,\mathsf{com}_1,\dots,r_1,\dots),\quad \text{etc.}
 \]
 
-This yields a non-interactive argument in the random oracle model. Non-interactive zero knowledge in the common-reference-string model originates with Blum, Feldman, and Micali \cite{BlumFeldmanMicali1988}; Fiat-Shamir is a different route, usually modeled through a random oracle.
+This yields a non-interactive argument in the random-oracle model. Non-interactive zero knowledge in the common-reference-string model originates with Blum, Feldman, and Micali \cite{BlumFeldmanMicali1988}; Fiat--Shamir is a different route, usually modeled through a random oracle.
 
 \subsection{Complexity bookkeeping}
 
@@ -49,15 +67,16 @@ and the prover's work is roughly
  t\cdot \mathrm{time}(\mathsf{Commit}) + q\cdot \mathrm{time}(\mathsf{Open}) + \mathrm{time}(\text{IOP prover}).
 \]
 
-This formula explains why the same Plonk IOP can lead to very different systems:
-\[
-\begin{array}{c|c|c}
-\text{PCS} & \text{Resulting flavor} & \text{Typical tradeoff}\\
-\hline
-\text{KZG \cite{KateZaveruchaGoldberg2010}} & \text{Aztec/JellyFish-style Plonk} & \text{short proofs, trusted setup}\\
-\text{IPA/Bulletproofs \cite{Bulletproofs2018}} & \text{Halo2-style Plonkish systems} & \text{transparent, slower verifier}\\
-\text{FRI \cite{BenSassonBentovHoreshRiabzev2018FRI}} & \text{Plonky2/STARK-like systems} & \text{transparent, hash-based, larger proofs}\\
-\end{array}
-\]
-
-
+This formula explains why the same polynomial IOP can lead to systems with different tradeoffs:
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.19\textwidth}p{0.29\textwidth}p{0.42\textwidth}@{}}
+\toprule
+PCS & Resulting flavor & Typical tradeoff \\
+\midrule
+KZG \cite{KateZaveruchaGoldberg2010} & pairing-based Plonk & short proofs; structured setup \\
+IPA \cite{Bulletproofs2018} & IPA-based Plonkish systems & transparent setup; slower verification \\
+FRI \cite{BenSassonBentovHoreshRiabzev2018FRI} & STARK-like systems & transparent and hash-based; larger proofs \\
+\bottomrule
+\end{tabular}
+\end{center}

@@ -1,0 +1,515 @@
+\section{A Complete FRI Folding Example over \texorpdfstring{$\F_{17}$}{F17}}
+\label{app:fri-example}
+
+This appendix gives a complete arithmetic transcript for binary multiplicative-domain FRI
+protocol of Section~\ref{sec:fri}. The field and domain are far too small for cryptographic
+security. Their purpose is to make every evaluation, fold, terminal degree check, and Merkle
+opening location explicit.
+
+\subsection{Parameters and evaluation domains}
+
+Work over
+\[
+    \F=\F_{17}.
+\]
+The element
+\[
+    \omega=3
+\]
+has order $16$ in $\F_{17}^{\times}$. Take the initial domain
+\[
+    D_0=\angles{\omega}
+       =(1,3,9,10,13,5,15,11,16,14,8,7,4,12,2,6).
+\]
+The order shown here is important: it is the leaf order used by the first Merkle tree.
+Squaring gives
+\[
+    D_1=\angles{\omega^2}
+       =\angles{9}
+       =(1,9,13,15,16,8,4,2),
+\]
+and squaring once more gives
+\[
+    D_2=\angles{\omega^4}
+       =\angles{13}
+       =(1,13,16,4).
+\]
+The sizes are
+\[
+    |D_0|=16,
+    \qquad
+    |D_1|=8,
+    \qquad
+    |D_2|=4.
+\]
+
+We prove proximity to the Reed--Solomon code
+\[
+    \RS[\F_{17},D_0,4].
+\]
+Thus the claimed degree bound is
+\[
+    d_0=4
+\]
+and the code rate is
+\[
+    \rho=\frac{4}{16}=\frac14.
+\]
+Each fold halves both the domain size and the degree bound:
+\[
+\begin{array}{c|c|c|c}
+\text{round }i & |D_i| & d_i & d_i/|D_i|\\
+\hline
+0 & 16 & 4 & 1/4\\
+1 & 8 & 2 & 1/4\\
+2 & 4 & 1 & 1/4
+\end{array}
+\]
+After two folds, a degree-$<1$ polynomial must be constant.
+
+\subsection{The initial Reed--Solomon word}
+
+Let the initial polynomial be
+\[
+    p_0(X)=3+5X+2X^2+7X^3.
+\]
+It has degree $3<4$, so its evaluation word is a valid codeword. Evaluating in the domain
+order above gives
+\[
+\begin{aligned}
+\mathbf f^{(0)}
+&=\bigl(p_0(x)\bigr)_{x\in D_0}\\
+&=(0,4,9,11,9,1,13,12,10,4,15,4,10,3,9,2).
+\end{aligned}
+\]
+For example,
+\[
+\begin{aligned}
+p_0(10)
+&=3+5\cdot10+2\cdot10^2+7\cdot10^3\\
+&=7253\\
+&\equiv 11\pmod{17}.
+\end{aligned}
+\]
+The points halfway around the subgroup differ by a sign because
+\[
+    \omega^8=16=-1\pmod{17}.
+\]
+Thus the two preimages under squaring are paired by indices $j$ and $j+8$:
+\[
+\begin{array}{c|c|c}
+x & -x & x^2\\
+\hline
+1 & 16 & 1\\
+3 & 14 & 9\\
+9 & 8 & 13\\
+10 & 7 & 15\\
+13 & 4 & 16\\
+5 & 12 & 8\\
+15 & 2 & 4\\
+11 & 6 & 2
+\end{array}
+\]
+
+\subsection{First folding round}
+
+Split $p_0$ into even and odd coefficient polynomials:
+\[
+\begin{aligned}
+p_0(X)
+&=(3+2X^2)+X(5+7X^2)\\
+&=p_{0,\mathrm{even}}(X^2)
+  +X p_{0,\mathrm{odd}}(X^2),
+\end{aligned}
+\]
+where
+\[
+    p_{0,\mathrm{even}}(Y)=3+2Y,
+    \qquad
+    p_{0,\mathrm{odd}}(Y)=5+7Y.
+\]
+Let the first verifier challenge be
+\[
+    \alpha_0=4.
+\]
+The folded polynomial is
+\[
+\begin{aligned}
+p_1(Y)
+&=p_{0,\mathrm{even}}(Y)+\alpha_0p_{0,\mathrm{odd}}(Y)\\
+&=(3+2Y)+4(5+7Y)\\
+&=23+30Y\\
+&\equiv 6+13Y\pmod{17}.
+\end{aligned}
+\]
+As required,
+\[
+    \deg p_1=1<2=\frac{d_0}{2}.
+\]
+
+We now reproduce this fold using only evaluation values. Since
+\[
+    2^{-1}\equiv9\pmod{17},
+\]
+define for each pair $\{x,-x\}$
+\[
+    E_0(x^2)=\frac{f^{(0)}(x)+f^{(0)}(-x)}2,
+\]
+\[
+    O_0(x^2)=\frac{f^{(0)}(x)-f^{(0)}(-x)}{2x}.
+\]
+The complete first-round table is:
+\[
+\begin{array}{c|c|c|c|c|c|c|c}
+x & -x & y=x^2
+& f^{(0)}(x) & f^{(0)}(-x)
+& E_0(y) & O_0(y) & E_0(y)+4O_0(y)\\
+\hline
+1  &16&1 &0 &10&5 &12&2\\
+3  &14&9 &4 &4 &4 &0 &4\\
+9  &8 &13&9 &15&12&11&5\\
+10 &7 &15&11&4 &16&8 &14\\
+13 &4 &16&9 &10&1 &15&10\\
+5  &12&8 &1 &3 &2 &10&8\\
+15 &2 &4 &13&9 &11&16&7\\
+11 &6 &2 &12&2 &7 &2 &15
+\end{array}
+\]
+These folded values are exactly the evaluations of $p_1(Y)=6+13Y$ on $D_1$:
+\[
+\begin{aligned}
+\mathbf f^{(1)}
+&=\bigl(p_1(y)\bigr)_{y\in D_1}\\
+&=(2,4,5,14,10,8,7,15).
+\end{aligned}
+\]
+
+As one nontrivial row check, take $x=9$, $-x=8$, and $y=x^2=13$. We have
+\[
+    f^{(0)}(9)=9,
+    \qquad
+    f^{(0)}(8)=15.
+\]
+The even component is
+\[
+    E_0(13)=\frac{9+15}{2}=24\cdot9\equiv12,
+\]
+and, because
+\[
+    (2\cdot9)^{-1}=1^{-1}=1\pmod{17},
+\]
+the odd component is
+\[
+    O_0(13)=\frac{9-15}{2\cdot9}\equiv -6\equiv11.
+\]
+Therefore
+\[
+    E_0(13)+4O_0(13)=12+4\cdot11=56\equiv5,
+\]
+which agrees with
+\[
+    p_1(13)=6+13\cdot13=175\equiv5.
+\]
+
+\subsection{Second folding round}
+
+The degree-$1$ polynomial $p_1$ already has the decomposition
+\[
+    p_1(Y)=6+13Y
+          =p_{1,\mathrm{even}}(Y^2)
+           +Yp_{1,\mathrm{odd}}(Y^2),
+\]
+where
+\[
+    p_{1,\mathrm{even}}(Z)=6,
+    \qquad
+    p_{1,\mathrm{odd}}(Z)=13.
+\]
+Let the second verifier challenge be
+\[
+    \alpha_1=6.
+\]
+Then
+\[
+\begin{aligned}
+p_2(Z)
+&=p_{1,\mathrm{even}}(Z)+\alpha_1p_{1,\mathrm{odd}}(Z)\\
+&=6+6\cdot13\\
+&=84\\
+&\equiv16\pmod{17}.
+\end{aligned}
+\]
+Thus $p_2$ is the constant polynomial $16$, as required by the terminal degree bound
+$d_2=1$.
+
+The complete evaluation-level fold is:
+\[
+\begin{array}{c|c|c|c|c|c|c|c}
+y & -y & z=y^2
+& f^{(1)}(y) & f^{(1)}(-y)
+& E_1(z) & O_1(z) & E_1(z)+6O_1(z)\\
+\hline
+1  &16&1 &2 &10&6&13&16\\
+9  &8 &13&4 &8 &6&13&16\\
+13 &4 &16&5 &7 &6&13&16\\
+15 &2 &4 &14&15&6&13&16
+\end{array}
+\]
+Therefore
+\[
+    \mathbf f^{(2)}
+    =\bigl(p_2(z)\bigr)_{z\in D_2}
+    =(16,16,16,16).
+\]
+In the terminal step the prover need not commit to four identical values. It can send the
+single coefficient
+\[
+    c_2=16,
+\]
+and the verifier treats the terminal oracle as the constant function $f^{(2)}(z)=c_2$.
+
+\subsection{A concrete commit transcript}
+
+We now place the arithmetic tables inside the cryptographic transcript. Let
+$\mathsf{MerkleRoot}$ denote a binary Merkle-tree root, with the leaf index included in the
+hashed leaf encoding.
+
+The prover first commits to the initial evaluation vector:
+\[
+    R_0=\mathsf{MerkleRoot}\bigl(\mathbf f^{(0)}\bigr).
+\]
+The verifier sends $\alpha_0=4$. In a non-interactive proof this value would be derived as
+\[
+    \alpha_0
+    =\mathsf{HashToField}
+      \bigl(\mathsf{fri\mbox{-}alpha\mbox{-}0}\,\|\,R_0\bigr).
+\]
+For this toy transcript, we stipulate that the resulting field element is $4$.
+
+The prover computes and commits to the first folded vector:
+\[
+    R_1=\mathsf{MerkleRoot}\bigl(\mathbf f^{(1)}\bigr).
+\]
+The second challenge is
+\[
+    \alpha_1
+    =\mathsf{HashToField}
+      \bigl(\mathsf{fri\mbox{-}alpha\mbox{-}1}\,\|\,R_0\,\|\,R_1\bigr)
+    =6.
+\]
+The prover computes the terminal polynomial and sends
+\[
+    c_2=16.
+\]
+Only now is the query index derived:
+\[
+\begin{aligned}
+j
+&=\mathsf{HashToIndex}
+  \bigl(\mathsf{fri\mbox{-}query}\,\|\,R_0\,\|\,R_1\,\|\,c_2\bigr)\\
+&=0.
+\end{aligned}
+\]
+The equalities to $4$, $6$, and $0$ are representative Fiat--Shamir outputs chosen to make
+the arithmetic transcript concrete. They are not claims about a particular deployed hash
+function.
+
+\subsection{One complete query path}
+
+The query index $j=0$ selects
+\[
+    x_0=\omega^0=1\in D_0.
+\]
+The path of squared points is
+\[
+    x_0=1,
+    \qquad
+    x_1=x_0^2=1\in D_1,
+    \qquad
+    x_2=x_1^2=1\in D_2.
+\]
+
+\subsubsection*{Round 0 check}
+
+The verifier opens
+\[
+    f^{(0)}(1)=0,
+    \qquad
+    f^{(0)}(-1)=f^{(0)}(16)=10,
+\]
+under $R_0$, and
+\[
+    f^{(1)}(1)=2
+\]
+under $R_1$. The locally reconstructed even value is
+\[
+    \frac{0+10}{2}=10\cdot9=90\equiv5,
+\]
+and the odd value is
+\[
+    \frac{0-10}{2\cdot1}
+    =7\cdot9
+    =63
+    \equiv12.
+\]
+The FRI equation gives
+\[
+\begin{aligned}
+\frac{f^{(0)}(1)+f^{(0)}(16)}2
++\alpha_0
+ \frac{f^{(0)}(1)-f^{(0)}(16)}{2}
+&=5+4\cdot12\\
+&=53\\
+&\equiv2\\
+&=f^{(1)}(1).
+\end{aligned}
+\]
+The first round accepts.
+
+\subsubsection*{Round 1 check}
+
+The already opened value $f^{(1)}(1)=2$ is reused. The verifier additionally opens
+\[
+    f^{(1)}(-1)=f^{(1)}(16)=10
+\]
+under $R_1$. The even and odd values are
+\[
+    \frac{2+10}{2}=12\cdot9=108\equiv6,
+\]
+\[
+    \frac{2-10}{2\cdot1}=9\cdot9=81\equiv13.
+\]
+Using $\alpha_1=6$,
+\[
+\begin{aligned}
+\frac{f^{(1)}(1)+f^{(1)}(16)}2
++\alpha_1
+ \frac{f^{(1)}(1)-f^{(1)}(16)}2
+&=6+6\cdot13\\
+&=84\\
+&\equiv16\\
+&=c_2.
+\end{aligned}
+\]
+The second round accepts, and $c_2$ describes a degree-$<1$ terminal polynomial. This
+completes the arithmetic verification path.
+
+\subsection{The Merkle authentication paths}
+
+To make the oracle realization explicit, let $L_k^{(i)}$ denote leaf $k$ of the tree for
+$\mathbf f^{(i)}$, and let $N_{a:b}^{(i)}$ denote the internal node covering the contiguous
+leaf interval $a,\ldots,b$.
+
+In the first tree, the round-$0$ query opens indices
+\[
+    0\quad\text{and}\quad8,
+\]
+corresponding to the points $1$ and $16=-1$. A separate authentication path for index $0$
+would contain
+\[
+    L_1^{(0)},\quad
+    N_{2:3}^{(0)},\quad
+    N_{4:7}^{(0)},\quad
+    N_{8:15}^{(0)}.
+\]
+A separate path for index $8$ would contain
+\[
+    L_9^{(0)},\quad
+    N_{10:11}^{(0)},\quad
+    N_{12:15}^{(0)},\quad
+    N_{0:7}^{(0)}.
+\]
+When the two openings are batched, $N_{0:7}^{(0)}$ and $N_{8:15}^{(0)}$ are reconstructed
+from the opened branches. The minimal sibling-node set is therefore
+\[
+\set{
+L_1^{(0)},
+N_{2:3}^{(0)},
+N_{4:7}^{(0)},
+L_9^{(0)},
+N_{10:11}^{(0)},
+N_{12:15}^{(0)}
+}.
+\]
+Together with the opened leaf values $0$ and $10$, these nodes reconstruct $R_0$.
+
+In the second tree, the full path needs indices
+\[
+    0\quad\text{and}\quad4,
+\]
+corresponding to $1$ and $16=-1$ in the $D_1$ ordering. The batched sibling-node set is
+\[
+\set{
+L_1^{(1)},
+N_{2:3}^{(1)},
+L_5^{(1)},
+N_{6:7}^{(1)}
+}.
+\]
+Together with the opened values $2$ and $10$, these nodes reconstruct $R_1$.
+
+The verifier rejects before doing field arithmetic if either reconstructed root differs from
+the committed root. Merkle verification therefore binds the numerical inputs used in both
+folding equations to the oracles fixed during the commit phase.
+
+\subsection{How a corrupted value is detected}
+
+Suppose, for illustration, that the first entry were changed from
+\[
+    f^{(0)}(1)=0
+\]
+to
+\[
+    \widetilde f^{(0)}(1)=1,
+\]
+while the queried values $f^{(0)}(16)=10$ and $f^{(1)}(1)=2$ remained unchanged. Under the
+same challenge $\alpha_0=4$, the verifier would reconstruct
+\[
+    \widetilde E_0(1)
+    =\frac{1+10}{2}
+    =11\cdot9
+    =99
+    \equiv14,
+\]
+\[
+    \widetilde O_0(1)
+    =\frac{1-10}{2}
+    =8\cdot9
+    =72
+    \equiv4.
+\]
+The expected folded value would become
+\[
+    14+4\cdot4=30\equiv13,
+\]
+but the committed next-round value is $2$. Hence
+\[
+    13\neq2,
+\]
+and this query path rejects.
+
+This calculation illustrates local consistency detection. It is not by itself a soundness
+proof: a malicious prover is free to alter later oracles as well. The global FRI theorem is
+what shows that if the initial word is far from every degree-$<4$ codeword, then random
+challenges and random query paths force either a detectable local inconsistency or a terminal
+word that fails the final degree check.
+
+\subsection{The complete proof obligations}
+
+For this example the verifier's obligations are:
+\begin{enumerate}[leftmargin=2em]
+    \item accept $R_0$ only as a commitment to a length-$16$ word indexed by $D_0$;
+    \item derive $\alpha_0$ after $R_0$ is fixed;
+    \item accept $R_1$ only as a commitment to a length-$8$ word indexed by $D_1$;
+    \item derive $\alpha_1$ after $R_1$ is fixed;
+    \item receive the terminal constant $c_2=16$;
+    \item derive query indices only after the complete commit transcript is fixed;
+    \item verify every Merkle authentication path;
+    \item check the round-$0$ folding equation;
+    \item check the round-$1$ folding equation against $c_2$;
+    \item check that the terminal description has degree less than $1$.
+\end{enumerate}
+
+The worked path verifies one randomly selected chain. A cryptographic instance repeats the
+query phase at many independent indices and uses much larger fields and domains. The
+arithmetic, however, is exactly the same as in the two equations checked above.

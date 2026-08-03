@@ -2,13 +2,8 @@
 \section{Paillier Encryption}
 %% ============================================================
 
-\todo{To include a leading example of homomorphism of RSA and but it only brings about
-multiplicative, then talks about GM encryption and its homomorphism, and finally some
-intuition why paillier construction brings additive}
-\todo{I think it may be in the GM paper, to check how to reduce from semantic security to IND-CPA and vice versa. }
-
 Paillier encryption~\cite{Paillier1999} is an additively homomorphic public-key scheme based on the
-\emph{decisional composite residuosity} (DCR) assumption.
+\emph{decisional composite residuosity} (DCR) assumption. Its design contrasts with textbook RSA: multiplying RSA ciphertexts multiplies plaintext representatives, whereas multiplying Paillier ciphertexts adds their exponents and therefore adds plaintexts modulo $n$.
 
 %% ------------------------------------------------------------
 \subsection{Setup and Key Generation}
@@ -56,7 +51,7 @@ We use the following key lemma.
   Then:
   \begin{enumerate}
     \item $(1+n)^k \equiv 1 + kn \pmod{n^2}$ for all $k \in \Z$.
-    \item $h^{n\lambda} \equiv 1 \pmod{n^2}$ for all $h \in H$.
+    \item $h^{\lambda} \equiv 1 \pmod{n^2}$ for all $h \in H$.
     \item $L(w^\lambda \bmod n^2) = \lambda [w] \bmod n$.
   \end{enumerate}
 \end{lemma}
@@ -91,16 +86,26 @@ $[c] = m[g]$ (since $[r^n] = 0$), so
 \subsection{The DCR Assumption}
 
 \begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
-  \textbf{DCR assumption.} Given $n = pq$ and a random $z \gets \Z_{n^2}^*$, no
-  probabilistic polynomial-time algorithm can decide whether $z$ is an $n$-th power
-  modulo $n^2$ with advantage non-negligibly greater than $\tfrac{1}{2}$.
+  \textbf{DCR assumption.} Let $n=pq$ be generated as above. For every probabilistic polynomial-time adversary $\mathcal A$,
+  \[
+  \left|
+  \Pr_{r\leftarrow\Z_n^*}[\mathcal A(n,r^n\bmod n^2)=1]
+  -
+  \Pr_{z\leftarrow\Z_{n^2}^*}[\mathcal A(n,z)=1]
+  \right|
+  \]
+  is negligible in the security parameter.
 \end{tcolorbox}
 
 The $n$-th powers in $\Z_{n^2}^*$ form the subgroup $H = \{r^n \bmod n^2 : r \in \Z_n^*\}$
 of index $n$ and order $\phi(n)$; the DCR assumption says the $n$ cosets of $H$ are
-computationally indistinguishable.
+computationally hidden.
 
-\todo{State the assumption formally and sketch the reduction from DCR to IND-CPA security.}
+For $g=1+n$, IND-CPA security follows by a direct hybrid. Given a DCR challenge $z$, a reduction chooses a random bit $b$ and gives the adversary
+\[
+c^*=(1+n)^{m_b}z\bmod n^2.
+\]
+If $z=r^n$, this is a correctly distributed encryption of $m_b$. If $z$ is uniform in $\Z_{n^2}^*$, multiplication by the fixed element $(1+n)^{m_b}$ preserves uniformity, so $c^*$ is independent of $b$. Any non-negligible IND-CPA advantage therefore distinguishes the two DCR distributions. This is also the usual equivalence between semantic security and IND-CPA for public-key encryption, specialized to Paillier's ciphertext distribution.
 
 \begin{remark}[Security with $g = 1+n$]
 \label{rem:g-security}
@@ -128,17 +133,15 @@ Scalar multiplication follows similarly:
 Both operations require only the public key and leave the randomness well-distributed.
 
 %% ============================================================
-\section{Threshold Paillier}
+\section{Threshold Paillier: Construction Sketch}
 %% ============================================================
 
-Threshold Paillier distributes the secret key $\lambda$ among $\ell$ parties so that any
-$t$-of-$\ell$ subset can jointly decrypt, but no coalition of fewer than $t$ parties learns
-anything about the plaintext.
+Threshold Paillier distributes decryption authority among $\ell$ parties so that a qualified set can jointly decrypt, while a coalition below the threshold cannot decrypt on its own. The presentation below isolates the reconstruction algebra used by standard threshold variants; complete schemes also specify modulus generation, verifiable shares, and a security proof \cite{FouquePoupardStern2000,DamgardJurik2001}.
 
 %% ------------------------------------------------------------
 \subsection{Motivation}
 
-\todo{Explain why threshold decryption matters (MPC, auctions, e-voting, collaborative SNARKs).}
+Threshold decryption removes a single decryption authority. It is useful when encrypted data are aggregated publicly but opening the result must require agreement, as in electronic voting, sealed-bid auctions, custody systems, and multiparty computation. Homomorphic evaluation can proceed under the public key, while policy is enforced only at decryption time.
 
 %% ------------------------------------------------------------
 \subsection{Key Generation and Share Distribution}
@@ -150,11 +153,14 @@ We describe the \emph{trusted dealer} model; see Remark~\ref{rem:dkg} for the DK
     Publish $pk$.
   \item Sample a random degree-$(t-1)$ polynomial $f \in \Z_{\phi(n)n}[X]$ with
     $f(0) = \phi(n)$ (so $sk = \phi(n)$).
-    \todo{why this sharing is not in field? is it still perfectly secure?}
   \item For each party $i \in [\ell]$, set $sk_i \gets f(i) \bmod \phi(n)n$ and send $sk_i$
     privately to party $i$.
   \item Erase $f$ and $sk$.
 \end{enumerate}
+
+\begin{remark}[Composite-ring sharing]
+This interpolation takes place over the composite ring $\Z_{\phi(n)n}$, not a field. It is therefore not ordinary Shamir sharing, and perfect privacy cannot be inferred from the standard field proof. Threshold Paillier constructions choose the sharing modulus and secret congruences together so that the required integer interpolation is well defined, and establish privacy by reduction to the underlying encryption assumption. The formulas here should be read as the reconstruction layer of that construction, not as a stand-alone generic secret-sharing scheme.
+\end{remark}
 
 Set $\Delta \coloneqq \ell!$. For any subset $S \subseteq [\ell]$ with $|S| = t$ and any
 $i \in S$, define the \emph{normalized Lagrange coefficient}
@@ -166,14 +172,7 @@ which is always an integer since all denominators divide $\Delta = \ell!$.
 
 \begin{remark}[DKG variant]
 \label{rem:dkg}
-To be completed
-  % In the \emph{distributed key generation} (DKG) setting, no trusted dealer is assumed.
-  % The parties jointly generate $(pk, sk_1, \dots, sk_\ell)$ via an MPC protocol such that
-  % $sk$ never appears in the clear. For Paillier this is significantly harder than for
-  % DL-based schemes, as it requires distributed generation of an RSA modulus $n = pq$
-  % without any party knowing $p$ or $q$; see~\cite{BonehFranklin1997} and subsequent work.
-  % In most practical deployments of threshold Paillier, a trusted dealer is assumed for
-  % the setup phase.
+In a distributed-key-generation variant, the parties jointly generate the RSA modulus and compatible decryption shares without reconstructing $p$, $q$, or the complete secret key at any one party. This is a separate protocol problem and is substantially more involved than distributing shares from a trusted dealer. The construction sketch in this chapter assumes the dealer model.
 \end{remark}
 
 %% ------------------------------------------------------------
@@ -187,8 +186,7 @@ Each party $i \in S$ computes its \emph{decryption share}:
 \[
   c_i \;\equiv_{n^2}\; c^{2\Delta \cdot sk_i}.
 \]
-(The factor of $2$ is a technicality to ensure certain divisibility conditions; see
-Shoup~\cite{Shoup2000}.)
+(The factor of $2$ ensures that the relevant values lie in the quadratic-residue subgroup used by the threshold construction \cite{DamgardJurik2001}.)
 
 \paragraph{Combining.}
 The combiner computes:
@@ -243,9 +241,11 @@ set $C \subseteq [\ell]$ with $|C| \leq t-1$.
     So the simulator expresses the honest party's contribution via $m$ and $\Theta$ alone,
     without needing $sk$.
 
-  \item \textbf{Challenge.} $A$ sends $(m_0, m_1) \in \Z_N^2$. The reduction forwards
-    $(\Theta\Delta^2 m_0 \bmod N,\ \Theta\Delta^2 m_1 \bmod N)$ to the plain Paillier CPA
-    oracle and receives $c_b^*$. It forwards $c_b^*$ to $A$ as the challenge ciphertext,
+  \item \textbf{Challenge.} $A$ sends $(m_0, m_1) \in \Z_N^2$. The reduction forwards the pair
+    \[
+      (\Theta\Delta^2 m_0 \bmod N,\ \Theta\Delta^2 m_1 \bmod N)
+    \]
+    to the plain Paillier CPA oracle and receives $c_b^*$. It forwards $c_b^*$ to $A$ as the challenge ciphertext,
     along with simulated shares computed as above. The messages are scaled by $\Theta\Delta^2$
     because the simulation introduces these extra factors: the combiner ultimately recovers
     $m\Delta^2\Theta \bmod N$ rather than $m$, so the challenge must be embedded accordingly.
@@ -294,8 +294,7 @@ order.  In $\mathbb{Z}_{N^2}^*$ the group order $\phi(N^2)$ is unknown (knowing 
 factors $N$).  Two modifications address this:
 \begin{enumerate}
   \item \textbf{Safe primes.} Choose $p = 2p'+1$ and $q = 2q'+1$ with $p', q'$ prime.
-    Then $\mathbb{Q}_{N^2}$ has order $m = p'q' = N\phi(N)/4$, which is a product of two
-    large primes.  Even though $m$ is unknown to the prover and verifier, the group has
+    Then $\mathbb{Q}_{N^2}$ has order $N p'q'=N\phi(N)/4$. Even though this order is unknown to the prover and verifier, the group has
     no small subgroups, which is the key property needed for the soundness argument.
   \item \textbf{Special generator.} Pick $g \equiv_{N^2} (1+N)^a b^N$ for $b \in \Z_N^*$
     and set $v = g^{2\alpha}$ for random $\alpha \in \Z_N^*$.  This ensures $v$ generates
@@ -311,21 +310,9 @@ DLEQ can be stated entirely within $\mathbb{Q}_{N^2}$.  The DLEQ proof itself in
 a further squaring, so the combiner ultimately recovers $c^{4\Delta^2 \cdot sk}$ and must
 divide out the extra factor of $4\Delta^2$ to obtain $m$.
 
-\todo{
-  Add the full description of the DLEQ proof used here. This is a zero-knowledge proof
-  in the style of Chaum--Pedersen~\cite{ChaumPedersen1992}, adapted to a group of
-  \emph{unknown} order. The key difference from the standard construction is that the
-  challenge must be drawn from a sufficiently small set (e.g.\ $\{0,1\}^k$ for security
-  parameter $k$) so that soundness holds even without knowing the group order; the
-  completeness and zero-knowledge properties carry over unchanged. See
-  Shoup~\cite{Shoup2000} for the full details and the soundness proof in this setting.
-}
+The share proof follows the Chaum--Pedersen equality-of-discrete-log pattern \cite{ChaumPedersen1992}: the prover commits using fresh exponent randomness, receives a challenge, and returns a linear response that is checked against both base--target pairs. In an unknown-order group the challenge and response ranges must be bounded explicitly; otherwise the ordinary prime-order special-soundness argument does not apply. The exact range proof and soundness analysis are part of the cited threshold-Paillier constructions rather than the elementary derivation above \cite{FouquePoupardStern2000,DamgardJurik2001}.
 
 %% ------------------------------------------------------------
 \subsection{Security}
 
-\todo{
-  State the threshold security game: semantic security holds as long as the adversary
-  corrupts fewer than $t$ parties. Reference Shoup's 2000 practical threshold
-  RSA/Paillier result.
-}
+In the threshold IND-CPA experiment, an adversary receives the public key and the internal shares of fewer than $t$ corrupted parties, chooses two messages, and receives an encryption of one of them. Subject to the decryption-oracle restrictions of the chosen model, its advantage in guessing the challenge bit must be negligible. Robust variants additionally require that malformed decryption shares be detected and that any qualified set of valid shares reconstruct the same plaintext. These properties depend on the complete sharing, verification, and setup protocols; they do not follow from the interpolation identity alone \cite{FouquePoupardStern2000,DamgardJurik2001}.

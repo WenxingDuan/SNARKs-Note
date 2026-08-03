@@ -1,0 +1,20 @@
+\section{Synthesis and Outlook}
+
+The constructions in this note can now be organized along two largely independent axes:
+\[
+\boxed{\text{arithmetization and oracle protocol}}
+\qquad+\qquad
+\boxed{\text{commitment and compilation layer}}.
+\]
+R1CS/QAP and Plonkish constraint systems choose different ways to express computation. KZG, IPA, pairings, and FRI choose different ways to bind the prover to algebraic data and verify it succinctly. These choices determine whether a system needs a trusted setup, whether its security is pairing-, discrete-log-, or hash-based, and whether proof size and verification are constant, logarithmic, or polylogarithmic.
+
+Across these systems, the recurring proof pattern is:
+\begin{enumerate}[leftmargin=2em]
+    \item encode a computation and witness as algebraic objects;
+    \item reduce global correctness to a small collection of polynomial relations;
+    \item bind the prover to the relevant polynomials or evaluation tables;
+    \item sample unpredictable challenges and test only a few evaluations;
+    \item compile the public-coin interaction into a non-interactive argument, typically with Fiat--Shamir.
+\end{enumerate}
+
+Groth16 realizes this pattern with a circuit-specific pairing SRS and a three-element proof. Plonk separates a reusable polynomial IOP from the PCS used to instantiate it. FRI replaces algebraic-group commitments with Merkle commitments and recursive low-degree testing, giving transparency and post-quantum-oriented assumptions at the cost of larger proofs. The appendices work through concrete instances of these abstractions and make the indexing, interpolation, transcript, and folding calculations explicit.

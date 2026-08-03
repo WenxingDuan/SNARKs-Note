@@ -19,5 +19,14 @@
 *.vrb
 *.xdv
 
-# Output PDFs (comment out if you want to track them)
+# Generated PDFs are ignored except for verified release artifacts.
 *.pdf
+
+# Rendered pages and other inspection intermediates
+tmp/
+
+# Verified release PDFs
+!output/
+!output/pdf/
+!output/pdf/SNARKs-Note.pdf
+!output/pdf/Threshold-Cryptography-Note.pdf

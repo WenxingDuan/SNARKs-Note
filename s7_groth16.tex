@@ -1,29 +1,25 @@
-﻿\section{Groth16 and Pairing-Based SNARKs}
+\section{Groth16 and Pairing-Based SNARKs}
 \label{sec:groth16}
 
-The previous chapters developed the Plonk route to SNARKs: computation is represented as a trace, local constraints become polynomial identities, and wiring is enforced by a permutation argument. Groth16 follows a different but equally central route. It starts from a rank-1 constraint system (R1CS), converts that system into a quadratic arithmetic program (QAP), and then uses pairings to prove the resulting QAP relation succinctly \cite{GennaroGentryParnoRaykova2013,ParnoHowellGentryRaykova2013,Groth2016}.
+The previous chapters developed the Plonk route to SNARKs: computation is represented as a trace, local constraints become polynomial identities, and wiring is enforced by a permutation argument. Groth16 follows a different but equally central route. It starts from a rank-1 constraint system (R1CS), converts that system into a quadratic arithmetic program (QAP), and proves the resulting divisibility relation with a preprocessing pairing argument \cite{GennaroGentryParnoRaykova2013,ParnoHowellGentryRaykova2013,Groth2016}.
 
-This chapter stops at the arithmetization boundary:
-\[
-\text{algebraic circuit}\quad\longrightarrow\quad\text{R1CS}\quad\longrightarrow\quad\text{QAP}.
-\]
-The later pairing-based proving and verification equations of Groth16 are intentionally postponed.
+For a fixed circuit, Groth16 has perfect completeness, perfect zero knowledge, a proof consisting of two elements of $\G_1$ and one element of $\G_2$, and a verifier whose pairing cost is independent of the circuit size. Its succinctness comes at the price of a circuit-specific structured reference string (SRS): the setup randomness must be sampled correctly and then destroyed.
 
 \subsection{The arithmetization pipeline}
 
-A high-level program is not directly suitable for a succinct proof. It must first be converted into algebraic statements over a field. For the Groth16 route, the pipeline is:
+The Groth16 route has the following shape:
 \[
 \boxed{
 \text{arithmetic circuit}
 \longrightarrow
-\text{flattened gates}
-\longrightarrow
 \text{R1CS matrices}
 \longrightarrow
 \text{QAP divisibility}
-}
+\longrightarrow
+\text{pairing equation}
+}.
 \]
-The conceptual transformation is:
+The conceptual transformation is
 \[
 \begin{array}{c}
 \text{the circuit is evaluated correctly}\\[0.2em]
@@ -32,152 +28,205 @@ The conceptual transformation is:
 \Longleftrightarrow\quad Z_H(X)\mid P_z(X).
 \end{array}
 \]
-The last equivalence is the same algebraic principle that appeared in ZeroTest: if a polynomial is zero on a domain $H$, then it is divisible by the vanishing polynomial
-\[
-    Z_H(X)=\prod_{r\in H}(X-r).
-\]
+Thus many gate equations become one polynomial identity.
 
 \subsection{From algebraic circuits to R1CS}
 
-An arithmetic circuit over a field $\F$ consists of wires carrying field elements and gates computing additions or multiplications. A satisfying assignment contains public inputs, private witness values, and auxiliary wire values introduced during computation. We write these values as a single vector
+Let $\F=\F_p$ be a prime field. A satisfying assignment is written
 \[
-    z=(z_0,z_1,\ldots,z_{n-1})\in\F^n,
+z=(a_0,a_1,\ldots,a_m)\in\F^{m+1},
+\qquad a_0=1.
 \]
-where $z_0=1$ is reserved for constants. Appendix~\ref{app:r1cs-qap-example} gives a color-coded example in which variable colors track columns and constraint colors track rows, so that each R1CS matrix entry can be followed into its corresponding QAP term.
-
-The first step is \emph{flattening}: every complex expression is decomposed into elementary equations whose left and right sides are linear forms, except for one multiplication between two linear forms. A general R1CS constraint has the shape
-\begin{tcolorbox}
+The public coordinates are $(a_0,\ldots,a_\ell)$, and the private witness coordinates are $(a_{\ell+1},\ldots,a_m)$. An R1CS instance with $n$ constraints consists of matrices
 \[
-    (\text{linear form in }z)\cdot(\text{linear form in }z)
-    =
-    (\text{linear form in }z).
+A,B,C\in\F^{n\times(m+1)}.
 \]
-\end{tcolorbox}
-Thus an addition gate such as
+Its $q$th constraint is
 \[
-    v=x_1+x_2
+\left(\sum_{i=0}^{m}A_{q,i}a_i\right)
+\left(\sum_{i=0}^{m}B_{q,i}a_i\right)
+=
+\sum_{i=0}^{m}C_{q,i}a_i.
 \]
-can be written as
+Equivalently,
 \[
-    (x_1+x_2)\cdot 1=v,
+(Az)\circ(Bz)=Cz,
 \]
-while a multiplication gate such as
-\[
-    y=v_1v_2
-\]
-is already of the form
-\[
-    v_1\cdot v_2=y.
-\]
-
-Formally, an R1CS instance with $m$ constraints and $n$ variables consists of three matrices
-\[
-    A,B,C\in\F^{m\times n}.
-\]
-The $i$th row of each matrix defines a linear form:
-\[
-    A_i\cdot z,
-    \qquad
-    B_i\cdot z,
-    \qquad
-    C_i\cdot z.
-\]
-The $i$th constraint is
-\[
-    (A_i\cdot z)(B_i\cdot z)=C_i\cdot z.
-\]
-Equivalently, all constraints can be written compactly as
-\[
-    (Az)\circ(Bz)=Cz,
-\]
-where $\circ$ denotes component-wise multiplication, not matrix multiplication. Each row is therefore one rank-1 multiplicative equation: the product of two linear forms equals a third linear form.
-
-This representation is powerful because it separates the \emph{shape of the computation}, stored in $A,B,C$, from the \emph{specific execution}, stored in $z$. The public statement usually fixes some coordinates of $z$, while the prover supplies the private witness and auxiliary wire values.
+where $\circ$ denotes component-wise multiplication. Addition gates fit this form by multiplying a linear form by the constant wire $a_0=1$; multiplication gates already have the required rank-1 form. Appendix~\ref{app:r1cs-qap-example} gives a color-coded example that tracks every matrix column into the corresponding QAP polynomial.
 
 \subsection{From R1CS to QAP}
 
-R1CS is still a list of $m$ separate equations. A verifier who directly checks all rows must inspect the constraints one by one. The QAP transformation compresses the list into a single polynomial divisibility statement.
-
-Choose a constraint domain
+Choose distinct constraint points
 \[
-    H=\{r_1,r_2,\ldots,r_m\}\subset\F
+H=\{r_1,\ldots,r_n\}\subset\F,
+\qquad
+t(X)=Z_H(X)=\prod_{q=1}^{n}(X-r_q).
 \]
-of $m$ distinct field elements, one point for each R1CS row. Its vanishing polynomial is
+For every variable index $i$, interpolate polynomials $u_i,v_i,w_i\in\F[X]$ of degree at most $n-1$ satisfying
 \[
-    Z_H(X)=\prod_{i=1}^{m}(X-r_i).
+u_i(r_q)=A_{q,i},\qquad
+v_i(r_q)=B_{q,i},\qquad
+w_i(r_q)=C_{q,i}.
 \]
-For every variable index $j\in\{0,\ldots,n-1\}$, interpolate three polynomials
+The $i$th columns of $A,B,C$ therefore become $u_i,v_i,w_i$. Aggregate them using the assignment:
 \[
-    A_j(X),\qquad B_j(X),\qquad C_j(X)
+U(X)=\sum_{i=0}^{m}a_i u_i(X),\qquad
+V(X)=\sum_{i=0}^{m}a_i v_i(X),\qquad
+W(X)=\sum_{i=0}^{m}a_i w_i(X).
 \]
-from the $j$th columns of the R1CS matrices:
+At $r_q$ these polynomials evaluate to the three linear forms in the $q$th R1CS row. Hence all constraints hold if and only if
 \[
-    A_j(r_i)=A_{i,j},
-    \qquad
-    B_j(r_i)=B_{i,j},
-    \qquad
-    C_j(r_i)=C_{i,j}
-    \qquad
-    \text{for all }i.
+P_z(r_q)=U(r_q)V(r_q)-W(r_q)=0
+\qquad(q=1,\ldots,n).
 \]
-In words, the $j$th column of $A$ becomes the polynomial $A_j(X)$, the $j$th column of $B$ becomes $B_j(X)$, and the $j$th column of $C$ becomes $C_j(X)$.
-
-Given an assignment $z=(z_0,\ldots,z_{n-1})$, combine these column polynomials using the assignment values as coefficients:
-\[
-    A_z(X)=\sum_{j=0}^{n-1}z_jA_j(X),
-    \qquad
-    B_z(X)=\sum_{j=0}^{n-1}z_jB_j(X),
-    \qquad
-    C_z(X)=\sum_{j=0}^{n-1}z_jC_j(X).
-\]
-At the constraint point $r_i$, interpolation gives
-\[
-    A_z(r_i)=\sum_j z_jA_j(r_i)=\sum_j z_jA_{i,j}=A_i\cdot z,
-\]
-with analogous equalities for $B_z(r_i)$ and $C_z(r_i)$. Therefore the $i$th R1CS constraint is equivalent to
-\[
-    A_z(r_i)B_z(r_i)-C_z(r_i)=0.
-\]
-Define the QAP numerator polynomial
-\[
-    P_z(X)=A_z(X)B_z(X)-C_z(X).
-\]
-Then the entire R1CS system is satisfied if and only if
-\[
-    P_z(r_i)=0\qquad\text{for every }r_i\in H.
-\]
-By the vanishing-polynomial criterion, this is equivalent to
+By the vanishing-polynomial criterion, this is equivalent to the existence of a polynomial $h(X)$ such that
 \begin{tcolorbox}
 \[
-    Z_H(X)\mid P_z(X),
-\]
-or, equivalently, there exists a quotient polynomial $h_z(X)$ such that
-\[
-    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+U(X)V(X)-W(X)=h(X)t(X).
 \]
 \end{tcolorbox}
-This is the QAP relation. It is the exact algebraic statement that later pairing-based SNARKs prove succinctly.
+Since $\deg U,\deg V,\deg W\le n-1$, one may take $\deg h\le n-2$. The QAP relation compresses all $n$ R1CS equations into one divisibility claim.
 
-\subsection{Where Groth16 begins}
+\subsection{Pairing notation}
 
-At the QAP stage, computation correctness has become the claim that the prover knows an assignment $z$ and a quotient polynomial $h_z$ satisfying
+Let $\G_1,\G_2,\G_T$ be cyclic groups of prime order $p$, and let
 \[
-    A_z(X)B_z(X)-C_z(X)=h_z(X)Z_H(X).
+e:\G_1\times\G_2\longrightarrow\G_T
 \]
-Groth16 begins by evaluating this relation at a hidden setup point $\tau$, encoding the resulting values in a structured reference string, and using pairings to check the multiplicative relation without revealing the witness. The proving and verification equations, public-input separation, toxic-waste structure, and zero-knowledge blinding terms will be developed in a later iteration.
+be a non-degenerate asymmetric bilinear pairing. Write
+\[
+[x]_1=g_1^x,\qquad [x]_2=g_2^x,
+\qquad [x]_T=e(g_1,g_2)^x.
+\]
+Group operations in the source groups add exponents, while the pairing multiplies them:
+\[
+[x]_j+[y]_j=[x+y]_j,qquad
+c[x]_j=[cx]_j,qquad
+e([x]_1,[y]_2)=[xy]_T.
+\]
+The additive notation on $\G_1$ and $\G_2$ is only typographical; the target-group equation below is multiplicative.
 
-\section{Synthesis and Outlook}
+\subsection{The structured reference string}
 
-The conceptual chain across the preceding sections is now visible:
-\begin{enumerate}[leftmargin=2em]
-    \item Start with the goal of proving knowledge of a witness for a circuit.
-    \item Encode the circuit and witness algebraically.
-    \item Reduce global correctness to a handful of polynomial identities.
-    \item Commit to the polynomials succinctly.
-    \item Check those identities at random points and make the interaction non-interactive via Fiat-Shamir.
-\end{enumerate}
+Setup samples
+\[
+(\alpha,\beta,\gamma,\delta,\tau)\xleftarrow{\$}\F^{5},
+\qquad \gamma,\delta\ne 0.
+\]
+For each public coordinate $0\le i\le\ell$, define
+\[
+K_i(\tau)=
+\frac{\beta u_i(\tau)+\alpha v_i(\tau)+w_i(\tau)}{\gamma},
+\]
+and for each private coordinate $\ell<i\le m$, define
+\[
+L_i(\tau)=
+\frac{\beta u_i(\tau)+\alpha v_i(\tau)+w_i(\tau)}{\delta}.
+\]
+The proving key contains the source-group encodings needed to form
+$[\alpha+U(\tau)]_1$, $[\beta+V(\tau)]_2$, the private-input linear combination $\sum_{i>\ell}a_i[L_i(\tau)]_1$, and
+\[
+\left\{\left[\frac{\tau^j t(\tau)}{\delta}\right]_1\right\}_{j=0}^{n-2}.
+\]
+Concretely this includes suitable encodings of the $u_i(\tau)$ values in $\G_1$, the $v_i(\tau)$ values in $\G_2$ (and the auxiliary encodings required to form the cross terms in $C$), together with $[\delta]_1$ and $[\delta]_2$. The verification key contains
+\[
+[\alpha]_1,quad [\beta]_2,quad [\gamma]_2,quad [\delta]_2,
+\quad \{[K_i(\tau)]_1\}_{i=0}^{\ell}.
+\]
+The exact published tuple is circuit dependent. Security requires that no party retain the toxic waste $(\alpha,\beta,\gamma,\delta,\tau)$ after setup.
 
-At this point one can already understand the architecture of a large fraction of modern proof systems. Later topics can explore different instantiations of the same template: different arithmetizations, different commitment schemes, different recursion techniques, and different implementation tradeoffs. The R1CS/QAP route developed above is the arithmetization layer for Groth16. The next technical layer to be developed is the pairing-based proof protocol itself: the structured reference string, the prover's group elements, the verifier's pairing equation, and the zero-knowledge blinding terms~\cite{Groth2016}.
+The scalars have separate algebraic roles. The hidden point $\tau$ binds the proof to one QAP identity; $\alpha$ and $\beta$ tie the two multiplicands to the same assignment; $\gamma$ isolates the verifier-controlled public-input contribution; and $\delta$ isolates the witness-dependent part and supports zero-knowledge randomization.
 
-\todo{merge the two}
-\input{groth16}
+\subsection{Proving}
+
+Given a satisfying assignment and the quotient $h(X)$, the prover samples independent $r,s\xleftarrow{\$}\F$ and forms the exponent-level quantities
+\begin{align*}
+A
+  &=\alpha+U(\tau)+r\delta,\\
+B
+  &=\beta+V(\tau)+s\delta,\\
+C
+  &=\frac{\displaystyle
+      \sum_{i=\ell+1}^{m}a_i
+      \bigl(\beta u_i(\tau)+\alpha v_i(\tau)+w_i(\tau)\bigr)
+      +h(\tau)t(\tau)}{\delta}
+      +sA+rB-rs\delta.
+\end{align*}
+The actual proof exposes only group encodings:
+\[
+\pi=([A]_1,[B]_2,[C]_1)\in\G_1\times\G_2\times\G_1.
+\]
+Every term is computed as a linear combination of proving-key elements; the prover never learns the setup scalars.
+
+\subsection{Verification and completeness}
+
+From the public coordinates, the verifier computes
+\[
+[K_{\mathrm{pub}}]_1
+=
+\sum_{i=0}^{\ell}a_i[K_i(\tau)]_1.
+\]
+It accepts exactly when
+\begin{tcolorbox}
+\[
+e([A]_1,[B]_2)
+\stackrel{?}{=}
+e([\alpha]_1,[\beta]_2)\,
+e([K_{\mathrm{pub}}]_1,[\gamma]_2)\,
+e([C]_1,[\delta]_2).
+\]
+\end{tcolorbox}
+The first pairing may be precomputed as $[\alpha\beta]_T$. Thus online verification uses one pairing-product equation with three pairings, plus a public-input multiscalar multiplication.
+
+To prove completeness, expand the left exponent:
+\begin{align*}
+AB
+&=(\alpha+U+r\delta)(\beta+V+s\delta)\\
+&=\alpha\beta+\beta U+\alpha V+UV
+  +s\delta(\alpha+U)+r\delta(\beta+V)+rs\delta^2,
+\end{align*}
+where all polynomials are evaluated at $\tau$. The QAP identity $UV=W+ht$ gives
+\[
+\beta U+\alpha V+UV
+=\sum_{i=0}^{m}a_i(\beta u_i+\alpha v_i+w_i)+ht.
+\]
+On the other hand,
+\begin{align*}
+\gamma K_{\mathrm{pub}}+\delta C
+&=\sum_{i=0}^{m}a_i(\beta u_i+\alpha v_i+w_i)+ht\\
+&\quad+s\delta A+r\delta B-rs\delta^2.
+\end{align*}
+Substituting $A$ and $B$ into the last line yields precisely all remaining terms of $AB$. Therefore
+\[
+AB=\alpha\beta+\gamma K_{\mathrm{pub}}+\delta C,
+\]
+and bilinearity gives the verifier's pairing equation.
+
+\subsection{Zero knowledge and knowledge soundness}
+
+For fixed $\delta\ne0$, the randomizers make $A$ and $B$ uniform over $\F$: translating a uniform field element by $\alpha+U(\tau)$ or $\beta+V(\tau)$ preserves uniformity. Once $A$ and $B$ are fixed, the verification equation determines
+\[
+C=\frac{AB-\alpha\beta-\gamma K_{\mathrm{pub}}}{\delta}.
+\]
+A simulator holding the setup trapdoor can therefore sample uniform $A,B$ and compute this $C$ without the witness. The resulting distribution is identical to that of an honest proof, which gives perfect zero knowledge for the original construction.
+
+Soundness is subtler. Informally, the SRS permits the prover to form only prescribed linear combinations in the exponents. The $\alpha$ and $\beta$ terms force the three proof elements to use a consistent assignment; the $\gamma/\delta$ separation prevents private coefficients from being substituted for verifier-controlled public inputs; and the hidden evaluation point makes a false polynomial identity hold only with negligible probability. Groth's analysis formalizes extraction against generic bilinear-group adversaries and establishes an argument of knowledge in that model \cite{Groth2016}. This assumption boundary should not be confused with an information-theoretic proof of knowledge in the standard model.
+
+\subsection{Protocol summary}
+
+\begin{tcolorbox}[enhanced,colback=blue!3!white,colframe=blue!45!black,
+                  arc=2.5pt,boxrule=1pt,left=6pt,right=6pt,top=5pt,bottom=5pt]
+\small
+\textbf{Setup.} Compile the fixed circuit to a QAP, sample
+$(\alpha,\beta,\gamma,\delta,\tau)$, publish the proving and verification keys, and destroy the trapdoor.
+
+\medskip
+\textbf{Prove.} For a satisfying assignment, compute $h$, sample $r,s$, and output
+$\pi=([A]_1,[B]_2,[C]_1)$.
+
+\medskip
+\textbf{Verify.} Form $[K_{\mathrm{pub}}]_1$ from the public input and check the single pairing-product equation above.
+
+\medskip
+\textbf{Cost.} The proof contains three group elements. Verification uses three online pairings when $e([\alpha]_1,[\beta]_2)$ is precomputed; prover and key sizes scale with the circuit.
+\end{tcolorbox}

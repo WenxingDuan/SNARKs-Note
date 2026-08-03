@@ -1,0 +1,666 @@
+\section{FRI: Fast Reed--Solomon IOPs of Proximity}
+\label{sec:fri}
+
+The polynomial IOP chapters above repeatedly used the same verifier strategy: commit to a
+polynomial, evaluate it at a random point, and use Schwartz--Zippel to detect a false identity.
+This strategy presupposes that the committed oracle really is the evaluation of a
+\emph{low-degree} polynomial. KZG enforces this through a structured reference string: the
+commitment can only be formed from the published powers up to the supported degree. A
+hash-based system has no such algebraic restriction. A Merkle root can bind the prover to an
+arbitrary table, including a table that is not close to any low-degree polynomial.
+
+FRI fills precisely this gap~\cite{BenSassonBentovHoreshRiabzev2018FRI}. Its full name is
+the Fast Reed--Solomon Interactive Oracle Proof of Proximity. It lets a verifier with oracle
+access to a large evaluation table test, using only a small number of queries, whether that
+table is close to a Reed--Solomon codeword. Its central operation resembles one layer of an inverse FFT:
+split a polynomial into its even and odd coefficient polynomials, combine those two pieces
+using a random verifier challenge, and recurse on a domain of half the size.
+
+The main conceptual point is:
+\[
+\boxed{
+\begin{array}{c}
+\text{Merkle commitment binds an arbitrary evaluation table,}\\[0.2em]
+\text{FRI proves that the table is close to a low-degree polynomial.}
+\end{array}}
+\]
+Neither component replaces the other. Together with Fiat--Shamir, they form the low-degree
+commitment layer used by many transparent proof systems.
+
+\subsection{The Reed--Solomon proximity problem}
+
+Let $D\subseteq\F$ be a set of $N$ distinct points and let $1\le d\le N$. Define the
+degree-$<d$ Reed--Solomon code on $D$ by
+\[
+    \RS[\F,D,d]
+    =\set{\bigl(p(x)\bigr)_{x\in D}:p\in\F[X],\ \deg p<d}
+    \subseteq \F^D.
+\]
+The dimension is $d$ and the rate is
+\[
+    \rho=\frac{d}{N}.
+\]
+The reciprocal
+\[
+    B=\rho^{-1}=\frac{N}{d}
+\]
+is the \emph{FRI blowup factor}. Starting from the $d$ coefficients of a degree-$<d$
+polynomial, the prover performs a low-degree extension to $N=Bd$ evaluations and commits
+only to those evaluations, rather than to all $|\F|$ field points. Thus $B$ exposes the main
+engineering tradeoff:
+\begin{itemize}[leftmargin=2em]
+    \item increasing $B$ increases the prover's evaluation and hashing work, and the initial
+    Merkle tree, essentially linearly;
+    \item increasing $B$ lowers the code rate and increases the distance, so fewer random
+    query paths are usually needed for the same target soundness.
+\end{itemize}
+At the lecture-level heuristic where a far word has disagreement rate near $1-\rho$, one
+query misses the disagreement with probability about $\rho=1/B$. Hence $t$ independent
+paths contribute at most roughly
+\[
+    t\log_2 B
+\]
+bits of query soundness, suggesting $t\approx\lceil\lambda/\log_2B\rceil$ for a
+$\lambda$-bit target. This is a parameter-selection heuristic, not a complete FRI security
+bound: finite-field terms, list-decoding radii, the exact FRI variant, and Fiat--Shamir
+grinding must also be included.
+
+If $p$ and $q$ are distinct polynomials of degree less than $d$, then $p-q$ has at most
+$d-1$ roots. Their evaluation vectors therefore disagree in at least $N-d+1$ positions.
+Consequently, the relative minimum distance of the code is
+\[
+    \delta_{\min}=\frac{N-d+1}{N}>1-\rho.
+\]
+
+For two functions $f,g:D\to\F$, their relative Hamming distance is
+\[
+    \Delta_D(f,g)
+    =\frac{1}{N}\abs{\set{x\in D:f(x)\neq g(x)}}.
+\]
+The distance from $f$ to the code is
+\[
+    \Delta_D\bigl(f,\RS[\F,D,d]\bigr)
+    =\min_{\deg p<d}\Delta_D(f,p|_D).
+\]
+
+\begin{definition}[Reed--Solomon IOP of proximity]
+An interactive oracle proof of proximity for $\RS[\F,D,d]$ gives the verifier oracle access
+to a claimed word $f^{(0)}:D\to\F$ and to auxiliary prover oracles. It has:
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{perfect completeness} if every $f^{(0)}\in\RS[\F,D,d]$ is accepted by
+    the honest verifier;
+    \item \textbf{proximity soundness} $s(\delta)$ if every word at relative distance
+    $\delta$ from the code is rejected with probability at least $s(\delta)$, regardless of
+    the auxiliary oracles supplied by a cheating prover.
+\end{itemize}
+\end{definition}
+
+The word \emph{proximity} matters. A verifier making $q\ll N$ queries cannot reject every
+word that differs from a codeword in only one position: it may simply miss that position.
+FRI therefore gives a rejection probability that grows with the distance from the code. It is
+not a deterministic proof of exact code membership.
+
+\subsection{Smooth multiplicative domains}
+
+We use the multiplicative presentation most compatible with the preceding chapters. Let
+$\F$ have odd characteristic and suppose that $\F^\times$ contains a subgroup of order
+\[
+    N=2^m.
+\]
+Let $\omega$ generate that subgroup and let $\gamma\in\F^\times$. Define
+\[
+    D_0=\gamma\angles{\omega}.
+\]
+Successively square the domains:
+\[
+    D_i
+    =\set{x^{2^i}:x\in D_0}
+    =\gamma^{2^i}\angles{\omega^{2^i}},
+    \qquad
+    |D_i|=\frac{N}{2^i}.
+\]
+For every $i<m$, the squaring map
+\[
+    q_i:D_i\to D_{i+1},
+    \qquad
+    q_i(x)=x^2,
+\]
+is two-to-one. The two preimages of $y=x^2$ are $x$ and $-x$.
+
+In a prime field $\F_p$, a subgroup of order $N$ exists exactly when $N\mid(p-1)$. This
+divisibility requirement explains the use of FFT-friendly fields. For example,
+\[
+    p=2^{64}-2^{32}+1,
+    \qquad
+    p-1=2^{32}(2^{32}-1),
+\]
+supports power-of-two subgroups through order $2^{32}$. Write
+$\gamma_i=\gamma^{2^i}$, $\omega_i=\omega^{2^i}$, and $N_i=|D_i|$. Since $N_i$ is even,
+\[
+    -\gamma_i\omega_i^j=\gamma_i\omega_i^{j+N_i/2}.
+\]
+Thus the two entries paired by a binary fold have indices separated by $N_i/2$, and both map
+to the same point of $D_{i+1}$. Implementations commonly place the two values in the same
+Merkle leaf, or at least adjacent in the leaf ordering, so that opening a fold exposes and
+authenticates the pair together.
+
+For clarity, assume first that the degree bound is a power of two,
+\[
+    d_0=2^r,
+    \qquad r\le m,
+\]
+and set
+\[
+    d_i=\frac{d_0}{2^i}.
+\]
+Both the domain size and the degree bound halve in every round, so the code rate remains
+constant:
+\[
+    \frac{d_i}{|D_i|}=\frac{d_0}{N}=\rho.
+\]
+After $r$ rounds the alleged polynomial has degree less than $1$, so it must be constant.
+
+\begin{remark}[Relation to the original FRI presentation]
+The formal main theorem of the original FRI paper is stated for additive cosets in binary
+extension fields. In characteristic two, $x$ and $-x$ coincide, so the map $x\mapsto x^2$
+is not the required two-to-one map; the construction instead uses affine-subspace
+polynomials, which are linearized polynomials. The same paper explains the smooth
+multiplicative-group version used here. Modern expositions over prime fields commonly use
+this roots-of-unity formulation because it exposes the FFT-style even/odd decomposition
+directly~\cite{BenSassonBentovHoreshRiabzev2018FRI}.
+\end{remark}
+
+\subsection{One folding round}
+
+Let
+\[
+    p(X)=a_0+a_1X+\cdots+a_{d-1}X^{d-1}
+\]
+have degree less than $d$. Separate its even and odd coefficients:
+\[
+    p_{\mathrm{even}}(Y)=\sum_{j\ge 0}a_{2j}Y^j,
+    \qquad
+    p_{\mathrm{odd}}(Y)=\sum_{j\ge 0}a_{2j+1}Y^j.
+\]
+Then
+\[
+\boxed{
+    p(X)=p_{\mathrm{even}}(X^2)+X\,p_{\mathrm{odd}}(X^2).
+}
+\]
+Both component polynomials have degree less than $\lceil d/2\rceil$. Given a verifier
+challenge $\alpha\in\F$, define the folded polynomial
+\[
+    \operatorname{Fold}_{\alpha}(p)(Y)
+    =p_{\mathrm{even}}(Y)+\alpha p_{\mathrm{odd}}(Y).
+\]
+Therefore
+\[
+    \deg \operatorname{Fold}_{\alpha}(p)<\left\lceil\frac d2\right\rceil.
+\]
+This is the source of FRI's degree reduction.
+
+The verifier does not know the coefficients of $p$. It only has oracle access to values
+$f(x)=p(x)$ on $D_i$. Nevertheless, the folded value at $y=x^2$ can be recovered from the
+pair $x,-x$:
+\[
+    p(x)=p_{\mathrm{even}}(y)+x p_{\mathrm{odd}}(y),
+\]
+\[
+    p(-x)=p_{\mathrm{even}}(y)-x p_{\mathrm{odd}}(y).
+\]
+Since the characteristic is odd,
+\[
+    p_{\mathrm{even}}(y)=\frac{p(x)+p(-x)}{2},
+\]
+\[
+    p_{\mathrm{odd}}(y)=\frac{p(x)-p(-x)}{2x}.
+\]
+Hence the round-consistency equation is
+\begin{tcolorbox}
+\[
+\boxed{
+f^{(i+1)}(x^2)
+=
+\frac{f^{(i)}(x)+f^{(i)}(-x)}{2}
++\alpha_i\frac{f^{(i)}(x)-f^{(i)}(-x)}{2x}.
+}
+\tag{FRI-fold}
+\]
+\end{tcolorbox}
+
+Equivalently, collecting the coefficients of the two opened values gives the Lagrange-weight
+form emphasized in many implementations:
+\[
+\boxed{
+f^{(i+1)}(x^2)
+=
+\frac{\alpha_i+x}{2x}f^{(i)}(x)
++\frac{\alpha_i-x}{-2x}f^{(i)}(-x).
+}
+\]
+The two weights sum to one. As a useful sanity check, setting $\alpha_i=x$ returns
+$f^{(i)}(x)$, while setting $\alpha_i=-x$ returns $f^{(i)}(-x)$.
+
+There is a useful interpolation interpretation. For fixed $y=x^2$, let $\ell_y(Z)$ be the
+unique affine polynomial satisfying
+\[
+    \ell_y(x)=f^{(i)}(x),
+    \qquad
+    \ell_y(-x)=f^{(i)}(-x).
+\]
+Then
+\[
+    \ell_y(Z)
+    =\frac{f^{(i)}(x)+f^{(i)}(-x)}{2}
+     +Z\frac{f^{(i)}(x)-f^{(i)}(-x)}{2x},
+\]
+and the folding check is simply
+\[
+    f^{(i+1)}(y)\stackrel{?}{=}\ell_y(\alpha_i).
+\]
+Thus each fiber $\{x,-x\}$ defines a line, and the verifier asks the prover to supply the
+values of all those lines at one unpredictable horizontal coordinate $\alpha_i$.
+
+\begin{intuitionbox}[title=\textbf{Why the challenge comes after the current oracle}]
+If the prover could see $\alpha_i$ before binding itself to $f^{(i)}$, it could choose the two
+values in every pair so that their interpolating line passes through any desired
+$f^{(i+1)}(x^2)$. The order
+\[
+    \text{commit to }f^{(i)}
+    \longrightarrow \alpha_i
+    \longrightarrow \text{commit to }f^{(i+1)}
+\]
+prevents this backwards construction. The random linear combination plays the same role as
+the verifier challenge in the sigma protocols studied earlier.
+\end{intuitionbox}
+
+\subsection{The pedagogical binary FRI protocol}
+
+We now state the complete arity-two protocol. The word $f^{(0)}:D_0\to\F$ is claimed to be
+close to $\RS[\F,D_0,d_0]$, where $d_0=2^r$. In the IOP model, ``send an oracle'' means
+that the verifier may later query selected entries without reading the whole message.
+
+\subsubsection*{Commit phase}
+
+The verifier begins with oracle access to $f^{(0)}$. For $i=0,\ldots,r-1$:
+\begin{enumerate}[leftmargin=2em]
+    \item the verifier samples a uniform challenge $\alpha_i\leftarrow\F$;
+    \item the prover sends a new oracle
+    \[
+        f^{(i+1)}:D_{i+1}\to\F,
+    \]
+    allegedly satisfying the folding equation (FRI-fold) for every $x\in D_i$.
+\end{enumerate}
+The final oracle $f^{(r)}$ is alleged to be constant. The prover sends that constant
+$c\in\F$. More generally, an implementation may stop earlier and send the coefficients of a
+small terminal polynomial, which the verifier evaluates directly.
+
+The final domain has not generally collapsed to one point. Since $r=\log_2d_0$,
+\[
+    |D_r|=\frac{N}{d_0}=B.
+\]
+It is the \emph{degree bound} that has collapsed to zero. Sending one field element $c$ is
+therefore an assertion that all $B$ remaining evaluations equal the same constant. If the
+protocol stops after $s<r$ folds, the terminal polynomial instead has degree
+$<d_0/2^s$; the prover sends its coefficients, and the verifier evaluates that polynomial at
+the terminal point reached by each query path.
+
+The honest prover does not need to interpolate a polynomial in every round. For each pair
+$\{x,-x\}$, it computes one output value using (FRI-fold). The total number of field
+operations over all rounds is therefore a geometric sum:
+\[
+    O(N)+O(N/2)+O(N/4)+\cdots=O(N).
+\]
+
+\subsubsection*{Query phase}
+
+After all oracles have been fixed, the verifier samples $t$ independent query seeds
+\[
+    x_0^{(1)},\ldots,x_0^{(t)}\leftarrow D_0.
+\]
+For each path $j$ set recursively
+\[
+    x_{i+1}^{(j)}=\bigl(x_i^{(j)}\bigr)^2.
+\]
+At round $i$, the verifier queries
+\[
+    f^{(i)}\bigl(x_i^{(j)}\bigr),
+    \qquad
+    f^{(i)}\bigl(-x_i^{(j)}\bigr),
+    \qquad
+    f^{(i+1)}\bigl(x_{i+1}^{(j)}\bigr),
+\]
+and checks (FRI-fold). The value in the third query is reused as one of the two values in the
+next round. In the last round it is compared with the terminal constant $c$.
+
+The verifier accepts only if every folding equation on every path is valid and the terminal
+degree check succeeds.
+
+\begin{tcolorbox}[colback=blue!4!white,colframe=blue!45!black]
+\textbf{Commit-before-query discipline.} The query locations must be sampled only after all
+oracles have been fixed. Otherwise the prover could make the checked paths consistent and
+place arbitrary values everywhere else. In the non-interactive version, this ordering is
+enforced by deriving every challenge and query seed from the transcript prefix that precedes
+it.
+\end{tcolorbox}
+
+\subsection{Perfect completeness}
+
+\begin{lemma}[Degree reduction under folding]
+If $\deg p_i<d_i$, then for every $\alpha_i\in\F$,
+\[
+    p_{i+1}=\operatorname{Fold}_{\alpha_i}(p_i)
+\]
+satisfies
+\[
+    \deg p_{i+1}<\left\lceil\frac{d_i}{2}\right\rceil.
+\]
+If $d_i$ is even, this is $\deg p_{i+1}<d_i/2$.
+\end{lemma}
+
+\begin{proof}
+Writing
+\[
+    p_i(X)=p_{i,\mathrm{even}}(X^2)+X p_{i,\mathrm{odd}}(X^2),
+\]
+the largest exponent appearing in either component is obtained by dividing an exponent of
+$p_i$ by two and rounding down. Thus both component degrees are less than
+$\lceil d_i/2\rceil$. Their linear combination has no larger degree.
+\end{proof}
+
+\begin{theorem}[Perfect completeness of binary folding]
+Suppose $f^{(0)}=p_0|_{D_0}$ for some polynomial $p_0$ of degree less than $d_0=2^r$.
+If the prover sets
+\[
+    p_{i+1}=\operatorname{Fold}_{\alpha_i}(p_i),
+    \qquad
+    f^{(i+1)}=p_{i+1}|_{D_{i+1}},
+\]
+then every verifier check passes, and $p_r$ is constant.
+\end{theorem}
+
+\begin{proof}
+The folding equation follows from the even/odd decomposition, so every local query check is
+an identity. By the lemma and induction,
+\[
+    \deg p_i<\frac{d_0}{2^i}.
+\]
+At $i=r$ this gives $\deg p_r<1$, hence $p_r$ is constant and equals the value sent by the
+honest prover.
+\end{proof}
+
+\subsection{Why local consistency implies proximity soundness}
+
+Completeness is elementary; soundness is the deep part of FRI. A local folding check only
+shows consistency among three queried values. A cheating prover may choose each oracle to be
+an arbitrary function, not the evaluation of any polynomial. The analysis must show that a
+word far from the initial Reed--Solomon code cannot be threaded through all folding rounds
+while making most local checks pass.
+
+For fixed oracles and a fixed challenge, define the round inconsistency rate
+\[
+\begin{aligned}
+\varepsilon_i
+=\Pr_{x\leftarrow D_i}\Biggl[
+f^{(i+1)}(x^2)\neq{}&
+\frac{f^{(i)}(x)+f^{(i)}(-x)}{2}\\
+&+\alpha_i\frac{f^{(i)}(x)-f^{(i)}(-x)}{2x}
+\Biggr].
+\end{aligned}
+\]
+If $\varepsilon_i$ is large, a random query catches the inconsistency directly. If it is
+small, then $f^{(i+1)}$ agrees on most points with the random fold of $f^{(i)}$. The crucial
+FRI proximity-gap theorem says, roughly, that random folding does not usually turn a word
+that is far from a Reed--Solomon code into one that is much closer to the smaller code.
+
+The reason randomness is necessary can be seen from list decoding. A received word may be
+close to several low-degree candidates. Each candidate pair induces algebraic conditions on
+$\alpha_i$ under which their folded images collide or become unusually close. Because the
+list of relevant candidates is controlled and $\alpha_i$ is sampled after the current oracle
+is fixed, only a small set of challenges is bad. Outside that set, either distance survives in
+the next round or the prover creates noticeable local inconsistency.
+
+The simplified security calculation presented in many lectures separates two failure modes as
+\[
+    \Pr[\text{accept}]
+    \lesssim
+    \varepsilon_{\mathrm{field}}+(1-\delta)^t.
+\]
+Here $\varepsilon_{\mathrm{field}}$ accounts for exceptional folding challenges---in a basic
+Schwartz--Zippel-style discussion it is on the order of a degree bound divided by $|\F|$---and
+$(1-\delta)^t$ is the probability that all $t$ query paths miss a $\delta$ fraction of bad
+locations. This formula is valuable intuition, but it is not a substitute for the theorem of
+the particular FRI variant and proximity regime being instantiated.
+
+There is also a matching interpolation attack explaining why the rate cannot be ignored.
+Assume for simplicity that $d$ is even. A cheating prover can choose a union $T$ of $d/2$
+pairs $\{x,-x\}\subset D_0$, so $|T|=d=\rho N$, and interpolate the unique degree-$<d$
+polynomial $s$ agreeing with the initial word on $T$. It then builds every later oracle by
+honestly folding $s$, not the full initial word. A query path whose first pair lies in $T$
+sees a perfectly consistent transcript; a uniformly sampled pair lies in $T$ with probability
+$\rho$. Consequently, all $t$ paths pass with probability
+\[
+    \rho^t=2^{-t\log_2(1/\rho)}.
+\]
+This attack works even when the initial word is otherwise very far from the code. It shows that
+no analysis can credit a binary-FRI path with more than about $\log_2(1/\rho)$ bits merely from
+sampling. It also explains why a larger blowup factor improves query efficiency.
+
+The original FRI theorem makes this quantitative for Reed--Solomon codes of rate
+$\rho=2^{-R}$, $R\ge2$. For a word at distance $\delta$ from the code, its optimized IOPP
+rejects with probability at least
+\[
+    \min\set{\delta(1-o(1)),\delta_0},
+\]
+where $\delta_0>0$ depends mainly on the code rate. For block length $N$, the construction
+has linear prover arithmetic, logarithmic verifier arithmetic, and logarithmic query
+complexity~\cite{BenSassonBentovHoreshRiabzev2018FRI}. The precise theorem uses the
+additive-domain, higher-arity protocol rather than the pedagogical binary version above, but
+the same proximity-preserving mechanism is at work.
+
+The many-round structure also calls for a stronger, round-by-round view of soundness. Later work
+proved round-by-round soundness and knowledge soundness for FRI and Batched FRI, and used those
+properties to justify a non-interactive random-oracle compilation
+\cite{BlockGarretaKatzThalerTiwariZajac2023FRIFS}. A representative bound in the regime
+$\delta<1-\sqrt{\rho}$ has the schematic form
+\[
+    \varepsilon_{\mathrm{rbr}}
+    =\max\set{
+      O\!\left(\frac{N^2}{\rho^{3/2}|\F|}\right),
+      (1-\delta)^t
+    },
+\]
+with exact notation and constants depending on the protocol. Subsequent concrete analysis
+shows that conjectured and provable parameter estimates can differ substantially, so real
+systems should report the theorem or conjecture under which their claimed bit security is
+computed~\cite{BlockTiwari2024ConcreteFRI}.
+
+If one execution rejects a $\delta$-far word with probability at least $s(\delta)$, then $t$
+independent query paths reduce the conditional acceptance probability to at most
+\[
+    \bigl(1-s(\delta)\bigr)^t.
+\]
+Concrete systems choose the code rate, folding arity, field, and number of queries together;
+one should not estimate security from the number of queries alone.
+
+\subsection{Compiling the oracle protocol with Merkle trees}
+
+The IOP model gives the verifier ideal oracle access. A cryptographic proof realizes each
+oracle using a Merkle commitment.
+
+\subsubsection*{Commit phase with hashes}
+
+For each evaluation vector
+\[
+    \mathbf f^{(i)}=\bigl(f^{(i)}(x)\bigr)_{x\in D_i},
+\]
+the prover builds a Merkle tree and publishes its root $R_i$. The transcript order is
+\[
+\begin{aligned}
+R_0
+&\longrightarrow \alpha_0=H(\mathsf{fri\mbox{-}challenge},R_0)\longrightarrow R_1\\
+&\longrightarrow \alpha_1=H(\mathsf{fri\mbox{-}challenge},R_0,R_1)\longrightarrow R_2
+\longrightarrow\cdots.
+\end{aligned}
+\]
+The hash outputs are mapped into field elements. Domain-separation labels and the complete
+statement must be included in the real transcript.
+
+Collision resistance gives computational binding: after publishing $R_i$, the prover cannot
+open one position to two different field values without producing a hash collision. This is
+the hash-based analogue of the binding role played by a PCS commitment.
+
+\subsubsection*{Grinding and Fiat--Shamir security accounting}
+
+Replacing each verifier message by a hash does more than remove the network interaction: it
+lets the prover evaluate the random oracle repeatedly before publishing a proof. If one complete
+interactive transcript accepts falsely with probability $\varepsilon$, then an adversary trying
+$Q$ independently varied transcript prefixes has the basic grinding opportunity suggested by
+$Q\varepsilon$. For a $\kappa$-bit random oracle, a representative classical-ROM accounting for
+FRI has the form~\cite{BlockGarretaKatzThalerTiwariZajac2023FRIFS}
+\[
+    \varepsilon_{\mathrm{FS}}
+    \le
+    Q\,\varepsilon_{\mathrm{rbr}}
+    +O\!\left(\frac{Q^2}{2^\kappa}\right).
+\]
+Thus ``$\lambda$ bits interactively'' does not mean that an implementation may ignore the
+attacker's hashing budget. For example, $2^b$ offline trials can consume roughly $b$ bits from
+a naive $2^{-\lambda}$ target.
+
+For an arbitrary many-round public-coin protocol, standard soundness alone need not prevent a
+stronger attack that grinds one round at a time, retaining each favorable prefix. This is why the
+lecture stresses \emph{round-by-round soundness}: from any doomed transcript prefix, the next
+random challenge should leave the state doomed except with small probability. The lecture slides
+predate the cited proof of this property for FRI; the correct modern conclusion is therefore not
+that Fiat--Shamir FRI lacks a proof, but that non-interactive security relies on the dedicated
+round-by-round/BCS analysis and its concrete parameters, rather than on the slogan ``replace every
+challenge by a hash.''
+
+\subsubsection*{Query phase with authentication paths}
+
+After the final root or terminal polynomial has been sent, Fiat--Shamir derives the query
+indices from the full transcript. For every queried value, the prover supplies a Merkle
+authentication path. The verifier:
+\begin{enumerate}[leftmargin=2em]
+    \item reconstructs each root and checks that every opened value belongs to the previously
+    committed oracle;
+    \item checks the FRI folding equations along each path;
+    \item checks the terminal polynomial and its degree bound.
+\end{enumerate}
+
+The IOP query complexity of binary FRI is $O(t\log d_0)$ field elements. With separate
+binary Merkle paths, the authentication data along one path is naively $O(\log^2 N)$ hash
+values, because the proof opens leaves in a sequence of progressively smaller trees. Batched
+openings, Merkle multiproofs, larger folding arity, and larger tree arity reduce the concrete
+overhead substantially.
+
+\subsection{FRI is a low-degree test, not by itself a PCS}
+
+It is common to say ``FRI commitment,'' but three layers should be distinguished:
+\[
+\begin{array}{c|c}
+\text{Layer} & \text{Responsibility}\\
+\hline
+\text{Merkle tree} & \text{bind to an evaluation table}\\
+\text{FRI IOPP} & \text{prove proximity of the table to a low-degree RS codeword}\\
+\text{evaluation reduction} & \text{connect a claimed point value to that codeword}
+\end{array}
+\]
+
+For example, to prove $p(z)=v$, define
+\[
+    q(X)=\frac{p(X)-v}{X-z}.
+\]
+If the claim is correct and $\deg p<d$, then $q$ is a polynomial of degree less than $d-1$.
+On an evaluation domain $D$ not containing $z$, the verifier can check at sampled points that
+\[
+    p(x)-v=(x-z)q(x),
+\]
+while FRI proves that the committed $q$-table is close to a polynomial of the required degree.
+In the simple unique-decoding interpretation, the distance must remain below roughly half the
+relative minimum distance, about $(1-\rho)/2$, so that there is a unique nearby polynomial to
+which the evaluation claim can refer. In that regime the elementary miss probability per query
+is larger than $\rho$ and may contribute less than one bit per path, even when the raw
+$\rho^t$ attack suggests $\log_2(1/\rho)$ bits. This is one reason FRI is often best understood
+as providing \emph{list/proximity binding}: the Merkle root and FRI transcript constrain the
+prover to a small set of nearby low-degree candidates, and the surrounding evaluation reduction
+must select the candidate consistent with $p(z)=v$.
+More refined protocols sample outside the evaluation domain to bind the prover more tightly
+to a candidate polynomial. DEEP-FRI formalizes this ``domain extending for eliminating
+pretenders'' idea and improves the soundness range while retaining linear prover arithmetic
+and logarithmic verifier arithmetic~\cite{BenSassonGoldbergKoppartySaraf2020DEEPFRI}.
+
+\subsection{Where FRI sits inside a STARK}
+
+FRI does not prove arbitrary computation directly. In a STARK-style system the layers are:
+\[
+\boxed{
+\begin{array}{c}
+\text{execution trace}\longrightarrow\text{AIR constraints}\\
+\longrightarrow\text{composition/quotient polynomial}\\
+\longrightarrow\text{low-degree extension on a large domain}\\
+\longrightarrow\text{FRI proximity proof}\\
+\longrightarrow\text{Merkle commitments + Fiat--Shamir}.
+\end{array}}
+\]
+AIR and the algebraic linking layer establish that the committed polynomial encodes a valid
+execution if it is low degree. FRI supplies that final low-degree guarantee. Merkle trees make
+the polynomial oracles succinctly accessible, and Fiat--Shamir removes interaction. This is
+the hash-based route to scalable transparent arguments described by the STARK
+construction~\cite{BenSassonBentovHoreshRiabzev2018STARK}.
+
+\begin{remark}[Transparency and post-quantum security]
+FRI requires no hidden algebraic trapdoor. Once compiled with Merkle trees, its cryptographic
+assumption is principally the security of the hash function, which is why FRI-based systems
+are described as transparent and plausibly post-quantum. Concrete post-quantum parameters
+must still account for quantum attacks on the hash function and for the security analysis of
+Fiat--Shamir in the quantum random-oracle model.
+\end{remark}
+
+\begin{remark}[Zero knowledge is an additional layer]
+Plain FRI is not automatically zero knowledge. Its query answers reveal evaluations of the
+committed codeword, and a Merkle root is binding but not an information-theoretic hiding
+commitment. A zero-knowledge STARK randomizes or masks the underlying polynomial oracles
+and proves that the masking preserves the required identities. FRI then proves low degree of
+the masked objects. Thus transparency, proximity soundness, and zero knowledge are separate
+properties that must each be established.
+\end{remark}
+
+\subsection{Complexity and design tradeoffs}
+
+For the binary pedagogical protocol with $t$ query paths and $r=\log_2d_0$ folds:
+\[
+\begin{array}{c|c}
+\text{Quantity} & \text{Asymptotic cost}\\
+\hline
+\text{folding arithmetic for the prover} & O(N)\\
+\text{total committed field elements} & <2N\\
+\text{verifier field queries} & O(t\log d_0)\\
+\text{verifier field arithmetic} & O(t\log d_0)\\
+\text{cryptographic setup} & \text{transparent; public hash function}\\
+\text{proof size after Merkle compilation} & \text{polylogarithmic, but larger than KZG proofs}
+\end{array}
+\]
+
+Higher-arity FRI decomposes
+\[
+    p(X)=\sum_{j=0}^{b-1}X^j p_j(X^b)
+\]
+and folds the $b$ coefficient polynomials using powers of a random challenge. It reduces the
+number of rounds by a factor of $\log_2 b$ but opens more sibling values per round. This is a
+typical proof-system tradeoff: larger arity shortens the recursion while increasing the local
+work and the width of each query.
+
+The enduring reason FRI is useful is not that any one cost is minimal. KZG has much smaller
+openings and faster verification. FRI instead combines:
+\begin{itemize}[leftmargin=2em]
+    \item linear-time algebraic folding,
+    \item logarithmic verifier arithmetic and query complexity,
+    \item no trusted setup,
+    \item hash-based commitments, and
+    \item compatibility with large FFT-style execution traces.
+\end{itemize}
+Appendix~\ref{app:fri-example} works through every fold and one complete authenticated query
+path over a small field.
